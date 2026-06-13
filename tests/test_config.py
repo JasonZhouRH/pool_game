@@ -1,0 +1,38 @@
+import config
+
+
+def test_window_and_table_are_consistent():
+    assert config.WINDOW_WIDTH > 0 and config.WINDOW_HEIGHT > 0
+    # 球台在窗口内且为横向长方形
+    assert 0 < config.TABLE_LEFT < config.TABLE_RIGHT < config.WINDOW_WIDTH
+    assert 0 < config.TABLE_TOP < config.TABLE_BOTTOM < config.WINDOW_HEIGHT
+    assert (config.TABLE_RIGHT - config.TABLE_LEFT) > (config.TABLE_BOTTOM - config.TABLE_TOP)
+
+
+def test_physics_params_in_sane_ranges():
+    assert 0 < config.FRICTION < 1
+    assert 0 < config.CUSHION_RESTITUTION <= 1
+    assert 0 < config.BALL_RESTITUTION <= 1
+    assert config.SUBSTEPS >= 1
+    # 每个 substep 的最大位移要小于球直径，避免穿模
+    assert config.MAX_SHOT_SPEED / config.SUBSTEPS < 2 * config.BALL_RADIUS
+
+
+def test_ball_radius_smaller_than_pocket():
+    assert config.BALL_RADIUS < config.POCKET_RADIUS
+
+
+def test_spin_control_constants_present_and_sane():
+    # 杆法图标与放大面板在窗口内、半径为正
+    assert 0 < config.SPIN_ICON_R < config.SPIN_PANEL_R
+    assert 0 < config.SPIN_ICON_X < config.WINDOW_WIDTH
+    assert 0 < config.SPIN_ICON_Y < config.WINDOW_HEIGHT
+    assert 0 < config.SPIN_PANEL_X < config.WINDOW_WIDTH
+    assert 0 < config.SPIN_PANEL_Y < config.WINDOW_HEIGHT
+    assert 0 < config.SPIN_DOT_R < config.SPIN_PANEL_R
+    # 图标整体在球台上沿之上的背景带，不压球台
+    assert config.SPIN_ICON_Y + config.SPIN_ICON_R < config.TABLE_TOP
+    assert config.SPIN_PANEL_Y + config.SPIN_PANEL_R < config.TABLE_TOP
+    # 物理强度为正且温和
+    assert 0 < config.FOLLOW_DRAW_STRENGTH <= 1.5
+    assert 0 < config.SIDE_ENGLISH_STRENGTH <= 1.0

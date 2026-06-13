@@ -1,0 +1,4 @@
+# pygame-ce 是 pygame 社区版，提供 Python 3.14 的预编译 wheel，import 名仍为 pygame。
+# 官方 pygame 在 Python 3.14 上需从源码编译且会失败，故采用 pygame-ce。
+pygame-ce>=2.5
+pytest>=8.0
