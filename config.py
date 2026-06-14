@@ -64,6 +64,7 @@ COLOR_EIGHT = (20, 20, 20)
 COLOR_STRIPE_BAND = (245, 245, 245)
 COLOR_POWER_BAR = (220, 60, 60)
 COLOR_GHOST = (235, 235, 235)        # 鬼球（母球撞击瞬间位置）轮廓
+COLOR_GHOST_FORBIDDEN = (230, 60, 60)  # 非法首球时鬼球（红圈 + 斜杠）
 COLOR_OBJECT_PATH = (235, 220, 120)  # 目标球路径（沿连心线）
 COLOR_CUE_PATH = (120, 220, 235)     # 母球切线路径（90° 定杆分离）
 COLOR_SLIDER_TRACK = (70, 70, 78)    # 微调滑轨
