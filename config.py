@@ -88,7 +88,7 @@ BALL_BASE_COLORS = {
 }
 
 # ---- 封面菜单 ----
-MENU_TITLE = "美式8球"
+MENU_TITLE = "台球游戏"
 MENU_BTN_TEXT = "8球模式"
 MENU_BTN_W = 220            # 按钮宽
 MENU_BTN_H = 64             # 按钮高
