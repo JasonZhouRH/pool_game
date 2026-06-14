@@ -332,6 +332,8 @@ def main():
                   config.TABLE_RIGHT, config.TABLE_BOTTOM)
     scene = 'menu'      # 'menu' 封面 / 'game' 对局
     game = None
+    hint_text = ""      # 封面临时提示文字，空串=不显示
+    hint_until = 0      # 提示到期时间戳（ms, pygame.time.get_ticks）
 
     while True:
         mouse_pos = pygame.mouse.get_pos()
@@ -340,10 +342,17 @@ def main():
                 pygame.quit()
                 sys.exit()
             if scene == 'menu':
-                if (ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1
-                        and menu.button_hit(*mouse_pos)):
-                    game = Game()          # 全新一局，比分清零
-                    scene = 'game'
+                if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
+                    clicked = menu.button_at(*mouse_pos)
+                    if clicked == 'eight':
+                        game = Game()          # 全新一局，比分清零
+                        scene = 'game'
+                    elif clicked == 'nine':
+                        hint_text = "9球模式 敬请期待"
+                        hint_until = pygame.time.get_ticks() + int(config.MENU_HINT_SECONDS * 1000)
+                    elif clicked == 'snooker':
+                        hint_text = "斯诺克 敬请期待"
+                        hint_until = pygame.time.get_ticks() + int(config.MENU_HINT_SECONDS * 1000)
             else:  # scene == 'game'
                 if ev.type == pygame.KEYDOWN and ev.key == pygame.K_ESCAPE:
                     scene = 'menu'         # 丢弃当前对局，返回封面
@@ -356,6 +365,10 @@ def main():
 
         if scene == 'menu':
             renderer.draw_menu(screen, font, title_font, table)
+            if hint_text and pygame.time.get_ticks() < hint_until:
+                renderer.draw_menu_hint(screen, font, hint_text)
+            else:
+                hint_text = ""   # 到期清空
         else:
             game.draw(screen, font, mouse_pos)
             renderer.draw_back_hint(screen, font)
