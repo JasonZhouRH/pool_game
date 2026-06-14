@@ -46,10 +46,11 @@ def draw_balls(screen, balls, font):
         pygame.draw.circle(screen, (0, 0, 0), (cx, cy), r, 1)
 
 
-def draw_aim(screen, cue, aim_dir, balls=None, spin_v=0.0):
+def draw_aim(screen, cue, aim_dir, balls=None, spin_v=0.0, is_forbidden=None):
     """瞄准线（朝 aim_dir 单位方向）+ 分离角预测。aim_dir 为母球去向。
 
     spin_v: 垂直杆法，传入 predict_aim 改变母球分离方向（跟/定/缩杆）。
+    is_forbidden: 可选回调 number->bool，命中球非法时鬼球画成红圈 + 斜杠。
     """
     if aim_dir is None:
         return
@@ -61,7 +62,8 @@ def draw_aim(screen, cue, aim_dir, balls=None, spin_v=0.0):
         end = (int(cue.x + ux * 220), int(cue.y + uy * 220))
         pygame.draw.line(screen, config.COLOR_LINE, (int(cue.x), int(cue.y)), end, 1)
     else:
-        _draw_separation(screen, cue, pred)
+        forbidden = bool(is_forbidden and is_forbidden(pred.target_number))
+        _draw_separation(screen, cue, pred, forbidden)
 
 
 def draw_fine_slider(screen, font, fine_offset):
@@ -125,15 +127,23 @@ def draw_spin_panel(screen, font, english):
     screen.blit(label, label.get_rect(center=(cx, cy - r - 14)))
 
 
-def _draw_separation(screen, cue, pred):
-    """瞄准线止于鬼球，鬼球处画轮廓圈 + 目标球进球路径。"""
+def _draw_separation(screen, cue, pred, forbidden=False):
+    """瞄准线止于鬼球，鬼球处画轮廓圈 + 目标球进球路径。
+
+    forbidden=True 时鬼球画成红圈 + 对角斜杠（非法首球提示）。
+    """
     r = config.BALL_RADIUS
     gx, gy = int(pred.ghost_x), int(pred.ghost_y)
     # 瞄准线：母球 → 鬼球接触点
     pygame.draw.line(screen, config.COLOR_LINE,
                      (int(cue.x), int(cue.y)), (gx, gy), 1)
-    # 鬼球：母球撞击瞬间位置的空心轮廓
-    pygame.draw.circle(screen, config.COLOR_GHOST, (gx, gy), r, 1)
+    # 鬼球：母球撞击瞬间位置的空心轮廓（非法时变红并叠加禁止斜杠）
+    ring_color = config.COLOR_GHOST_FORBIDDEN if forbidden else config.COLOR_GHOST
+    pygame.draw.circle(screen, ring_color, (gx, gy), r, 1)
+    if forbidden:
+        off = int(r * 0.707)   # 对角斜杠端点（圆上 45°）
+        pygame.draw.line(screen, config.COLOR_GHOST_FORBIDDEN,
+                         (gx - off, gy + off), (gx + off, gy - off), 2)
     # 目标球路径：沿连心线方向
     ox, oy = pred.object_dir
     pygame.draw.line(screen, config.COLOR_OBJECT_PATH, (gx, gy),
