@@ -190,7 +190,7 @@ def draw_gameover(screen, font, winner_player):
 
 
 def draw_menu(screen, font, title_font, table):
-    """封面：台面背景 + 半透明遮罩 + 居中标题 + "8球模式"按钮。"""
+    """封面：台面背景 + 半透明遮罩 + 居中标题 + 竖排模式按钮。"""
     draw_table(screen)
     draw_pockets(screen, table)
     overlay = pygame.Surface((config.WINDOW_WIDTH, config.WINDOW_HEIGHT), pygame.SRCALPHA)
@@ -199,15 +199,26 @@ def draw_menu(screen, font, title_font, table):
     # 标题：按钮上方
     title = title_font.render(config.MENU_TITLE, True, config.COLOR_MENU_TITLE)
     screen.blit(title, title.get_rect(center=(config.WINDOW_WIDTH // 2, config.MENU_BTN_CY - 140)))
-    # 按钮
-    x, y, w, h = menu.button_rect()
-    pygame.draw.rect(screen, config.COLOR_MENU_BTN, (x, y, w, h), border_radius=12)
-    pygame.draw.rect(screen, (0, 0, 0), (x, y, w, h), 2, border_radius=12)
-    label = font.render(config.MENU_BTN_TEXT, True, config.COLOR_MENU_BTN_TEXT)
-    screen.blit(label, label.get_rect(center=(x + w // 2, y + h // 2)))
+    # 按钮（竖排三个）
+    for _bid, label_text, x, y, w, h in menu.button_rects():
+        pygame.draw.rect(screen, config.COLOR_MENU_BTN, (x, y, w, h), border_radius=12)
+        pygame.draw.rect(screen, (0, 0, 0), (x, y, w, h), 2, border_radius=12)
+        label = font.render(label_text, True, config.COLOR_MENU_BTN_TEXT)
+        screen.blit(label, label.get_rect(center=(x + w // 2, y + h // 2)))
 
 
 def draw_back_hint(screen, font):
     """对局界面右下角小灰字：提示按 ESC 返回主界面。"""
     txt = font.render("ESC 返回主界面", True, config.COLOR_TEXT)
     screen.blit(txt, txt.get_rect(bottomright=(config.WINDOW_WIDTH - 20, config.WINDOW_HEIGHT - 14)))
+
+
+def draw_menu_hint(screen, font, text):
+    """封面临时提示：按钮区下方居中一行字。text 为空则不画。"""
+    if not text:
+        return
+    # 提示画在最下面一个按钮的下方
+    rects = menu.button_rects()
+    bottom = max(y + h for _bid, _label, _x, y, _w, h in rects)
+    txt = font.render(text, True, config.COLOR_MENU_HINT)
+    screen.blit(txt, txt.get_rect(center=(config.WINDOW_WIDTH // 2, bottom + 30)))
