@@ -347,6 +347,8 @@ def main():
                     if clicked == 'eight':
                         game = Game()          # 全新一局，比分清零
                         scene = 'game'
+                        hint_text = ""         # 进游戏即清除残留提示
+                        hint_until = 0
                     elif clicked == 'nine':
                         hint_text = "9球模式 敬请期待"
                         hint_until = pygame.time.get_ticks() + int(config.MENU_HINT_SECONDS * 1000)

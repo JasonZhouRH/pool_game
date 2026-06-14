@@ -196,11 +196,13 @@ def draw_menu(screen, font, title_font, table):
     overlay = pygame.Surface((config.WINDOW_WIDTH, config.WINDOW_HEIGHT), pygame.SRCALPHA)
     overlay.fill(config.COLOR_MENU_OVERLAY)
     screen.blit(overlay, (0, 0))
-    # 标题：按钮上方
+    rects = menu.button_rects()
+    # 标题：最上面按钮的上方（midbottom 锚点，留白不随字体高度变化）
+    top = min(y for _bid, _label, _x, y, _w, _h in rects)
     title = title_font.render(config.MENU_TITLE, True, config.COLOR_MENU_TITLE)
-    screen.blit(title, title.get_rect(center=(config.WINDOW_WIDTH // 2, config.MENU_BTN_CY - 140)))
+    screen.blit(title, title.get_rect(midbottom=(config.WINDOW_WIDTH // 2, top - 24)))
     # 按钮（竖排三个）
-    for _bid, label_text, x, y, w, h in menu.button_rects():
+    for _bid, label_text, x, y, w, h in rects:
         pygame.draw.rect(screen, config.COLOR_MENU_BTN, (x, y, w, h), border_radius=12)
         pygame.draw.rect(screen, (0, 0, 0), (x, y, w, h), 2, border_radius=12)
         label = font.render(label_text, True, config.COLOR_MENU_BTN_TEXT)

@@ -41,7 +41,6 @@ def test_spin_control_constants_present_and_sane():
 def test_menu_constants_present_and_sane():
     # 文案
     assert isinstance(config.MENU_TITLE, str) and config.MENU_TITLE
-    assert isinstance(config.MENU_BTN_TEXT, str) and config.MENU_BTN_TEXT
     # 按钮尺寸为正、按钮整体落在窗口内
     assert config.MENU_BTN_W > 0 and config.MENU_BTN_H > 0
     assert config.MENU_BTN_W <= config.WINDOW_WIDTH

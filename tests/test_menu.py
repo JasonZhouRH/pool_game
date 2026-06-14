@@ -27,6 +27,7 @@ def test_button_rects_no_vertical_overlap():
         a_bottom = a[3] + a[5]   # a.y + a.h
         b_top = b[3]
         assert a_bottom <= b_top
+        assert b_top - a_bottom == config.MENU_BTN_GAP
 
 
 def test_button_at_center_returns_id():
