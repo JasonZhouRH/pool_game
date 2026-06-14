@@ -25,6 +25,18 @@ def _first_cue_contact(events):
     return None, -1
 
 
+def is_legal_first_contact(number, open_table, shooter_group, shooter_on_eight):
+    """该球作为母球首个碰到的球是否合法。与 evaluate_shot 的犯规判定一致。
+
+    开放球台：除 8 号外都合法；打 8 阶段：仅 8 号合法；已分组：仅本组合法。
+    """
+    if open_table:
+        return number != 8
+    if shooter_on_eight:
+        return number == 8
+    return group_of(number) == shooter_group
+
+
 def evaluate_shot(events, open_table, shooter_group, shooter_on_eight):
     pocketed_all = [e.data['number'] for e in events if e.type == EVENT_POCKETED]
     cue_pocketed = 0 in pocketed_all
@@ -41,16 +53,14 @@ def evaluate_shot(events, open_table, shooter_group, shooter_on_eight):
         foul, reason = True, '母球落袋'
     elif first_contact is None:
         foul, reason = True, '母球未碰到任何球'
-    else:
-        fc_group = group_of(first_contact)
+    elif not is_legal_first_contact(first_contact, open_table, shooter_group, shooter_on_eight):
         if open_table:
-            if first_contact == 8:
-                foul, reason = True, '开放球台不能先碰8号球'
+            reason = '开放球台不能先碰8号球'
         elif shooter_on_eight:
-            if first_contact != 8:
-                foul, reason = True, '应先碰8号球'
-        elif fc_group != shooter_group:
-            foul, reason = True, '先碰到对方或错误的球'
+            reason = '应先碰8号球'
+        else:
+            reason = '先碰到对方或错误的球'
+        foul = True
     # 空杆：无目标球进袋，且接触目标球后没有任何球碰库
     if not foul and not object_pocketed and not cushion_after_contact:
         foul, reason = True, '空杆：碰球后无球进袋也无球碰库'
