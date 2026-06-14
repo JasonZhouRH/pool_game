@@ -57,6 +57,7 @@ class AimPrediction(NamedTuple):
     target_y: float
     object_dir: tuple     # 目标球去向（沿两球连心线）单位向量
     cue_dir: tuple        # 母球去向（切线，90° 定杆分离）单位向量
+    target_number: int    # 被撞目标球球号（用于判定是否合法首球）
 
 
 def predict_aim(cue_x, cue_y, dir_x, dir_y, balls, sum_radius=None, spin_v=0.0):
@@ -122,4 +123,4 @@ def predict_aim(cue_x, cue_y, dir_x, dir_y, balls, sum_radius=None, spin_v=0.0):
         cx, cy = cx / clen, cy / clen
 
     return AimPrediction(ghost_x, ghost_y, best_ball.x, best_ball.y,
-                         (nx, ny), (cx, cy))
+                         (nx, ny), (cx, cy), best_ball.number)
