@@ -2,6 +2,7 @@
 import pygame
 
 import config
+import menu
 from balls import group_of, ball_color
 from cue import predict_aim
 
@@ -186,3 +187,27 @@ def draw_gameover(screen, font, winner_player):
     msg = f"玩家{winner_player + 1} 获胜！  按 R 重新开始"
     txt = font.render(msg, True, (255, 255, 255))
     screen.blit(txt, txt.get_rect(center=(config.WINDOW_WIDTH // 2, config.WINDOW_HEIGHT // 2)))
+
+
+def draw_menu(screen, font, title_font, table):
+    """封面：台面背景 + 半透明遮罩 + 居中标题 + "8球模式"按钮。"""
+    draw_table(screen)
+    draw_pockets(screen, table)
+    overlay = pygame.Surface((config.WINDOW_WIDTH, config.WINDOW_HEIGHT), pygame.SRCALPHA)
+    overlay.fill(config.COLOR_MENU_OVERLAY)
+    screen.blit(overlay, (0, 0))
+    # 标题：按钮上方
+    title = title_font.render(config.MENU_TITLE, True, config.COLOR_MENU_TITLE)
+    screen.blit(title, title.get_rect(center=(config.WINDOW_WIDTH // 2, config.MENU_BTN_CY - 140)))
+    # 按钮
+    x, y, w, h = menu.button_rect()
+    pygame.draw.rect(screen, config.COLOR_MENU_BTN, (x, y, w, h), border_radius=12)
+    pygame.draw.rect(screen, (0, 0, 0), (x, y, w, h), 2, border_radius=12)
+    label = font.render(config.MENU_BTN_TEXT, True, config.COLOR_MENU_BTN_TEXT)
+    screen.blit(label, label.get_rect(center=(x + w // 2, y + h // 2)))
+
+
+def draw_back_hint(screen, font):
+    """对局界面右下角小灰字：提示按 ESC 返回主界面。"""
+    txt = font.render("ESC 返回主界面", True, config.COLOR_TEXT)
+    screen.blit(txt, txt.get_rect(bottomright=(config.WINDOW_WIDTH - 20, config.WINDOW_HEIGHT - 14)))
