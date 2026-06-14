@@ -36,3 +36,19 @@ def test_spin_control_constants_present_and_sane():
     # 物理强度为正且温和
     assert 0 < config.FOLLOW_DRAW_STRENGTH <= 1.5
     assert 0 < config.SIDE_ENGLISH_STRENGTH <= 1.0
+
+
+def test_menu_constants_present_and_sane():
+    # 文案
+    assert isinstance(config.MENU_TITLE, str) and config.MENU_TITLE
+    assert isinstance(config.MENU_BTN_TEXT, str) and config.MENU_BTN_TEXT
+    # 按钮尺寸为正、按钮整体落在窗口内
+    assert config.MENU_BTN_W > 0 and config.MENU_BTN_H > 0
+    assert config.MENU_BTN_W <= config.WINDOW_WIDTH
+    assert 0 < config.MENU_BTN_CY < config.WINDOW_HEIGHT
+    assert config.MENU_BTN_CY + config.MENU_BTN_H // 2 <= config.WINDOW_HEIGHT
+    # 遮罩为带 alpha 的 RGBA，其余为 RGB
+    assert len(config.COLOR_MENU_OVERLAY) == 4 and 0 <= config.COLOR_MENU_OVERLAY[3] <= 255
+    assert len(config.COLOR_MENU_BTN) == 3
+    assert len(config.COLOR_MENU_BTN_TEXT) == 3
+    assert len(config.COLOR_MENU_TITLE) == 3

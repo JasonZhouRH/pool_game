@@ -86,3 +86,15 @@ BALL_BASE_COLORS = {
     6: (30, 140, 70),     # 绿
     7: (120, 40, 40),     # 栗
 }
+
+# ---- 封面菜单 ----
+MENU_TITLE = "美式8球"
+MENU_BTN_TEXT = "8球模式"
+MENU_BTN_W = 220            # 按钮宽
+MENU_BTN_H = 64             # 按钮高
+MENU_BTN_CY = 400           # 按钮中心 y（窗口下部，标题在其上方）
+
+COLOR_MENU_OVERLAY = (0, 0, 0, 150)   # 台面背景上的半透明黑遮罩 (RGBA)
+COLOR_MENU_BTN = (40, 140, 80)        # 按钮填充（呼应台呢绿）
+COLOR_MENU_BTN_TEXT = (245, 245, 245) # 按钮文字
+COLOR_MENU_TITLE = (245, 245, 245)    # 标题文字
