@@ -48,9 +48,9 @@
   - `COLOR_MENU_BTN_TEXT` —— 按钮文字
   - `COLOR_MENU_TITLE` —— 标题文字
 
-### `renderer.py` 新增 `draw_menu(screen, font, title_font)`
+### `renderer.py` 新增 `draw_menu(screen, font, title_font, table)`
 
-复用现有 `draw_table(screen)` + `draw_pockets(screen, table)` 画台面背景 → 叠半透明遮罩 → 居中大字标题 → 用 `menu.button_rect()` 画圆角按钮 + 居中文字。
+复用现有 `draw_table(screen)` + `draw_pockets(screen, table)` 画台面背景 → 叠半透明遮罩 → 居中大字标题 → 用 `menu.button_rect()` 画圆角按钮 + 居中文字。需要 `table` 是为了画袋口位置。
 
 标题用更大号字体：在 `main()` 中额外创建一个 `title_font` 传入。
 
