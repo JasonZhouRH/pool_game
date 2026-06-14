@@ -98,3 +98,6 @@ COLOR_MENU_OVERLAY = (0, 0, 0, 150)   # 台面背景上的半透明黑遮罩 (RG
 COLOR_MENU_BTN = (40, 140, 80)        # 按钮填充（呼应台呢绿）
 COLOR_MENU_BTN_TEXT = (245, 245, 245) # 按钮文字
 COLOR_MENU_TITLE = (245, 245, 245)    # 标题文字
+MENU_BTN_GAP = 20            # 按钮竖向间距（像素）
+MENU_HINT_SECONDS = 2.0      # 临时提示停留秒数
+COLOR_MENU_HINT = (235, 220, 120)  # 临时提示文字色（暖黄）

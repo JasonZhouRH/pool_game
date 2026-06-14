@@ -52,3 +52,7 @@ def test_menu_constants_present_and_sane():
     assert len(config.COLOR_MENU_BTN) == 3
     assert len(config.COLOR_MENU_BTN_TEXT) == 3
     assert len(config.COLOR_MENU_TITLE) == 3
+    # 三按钮布局 + 提示
+    assert config.MENU_BTN_GAP >= 0
+    assert config.MENU_HINT_SECONDS > 0
+    assert len(config.COLOR_MENU_HINT) == 3
