@@ -141,7 +141,7 @@ def _draw_separation(screen, cue, pred, forbidden=False):
     ring_color = config.COLOR_GHOST_FORBIDDEN if forbidden else config.COLOR_GHOST
     pygame.draw.circle(screen, ring_color, (gx, gy), r, 1)
     if forbidden:
-        off = int(r * 0.707)   # 对角斜杠端点（圆上 45°）
+        off = round(r * 0.707)   # 对角斜杠端点（圆上 45°）
         pygame.draw.line(screen, config.COLOR_GHOST_FORBIDDEN,
                          (gx - off, gy + off), (gx + off, gy - off), 2)
     # 目标球路径：沿连心线方向
