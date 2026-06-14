@@ -9,7 +9,7 @@ import renderer
 from balls import create_standard_balls, find_cue, group_of
 from cue import (aim_direction, apply_fine_tune, clamp_english,
                  power_from_drag, velocity_from_aim)
-from rules import evaluate_shot
+from rules import evaluate_shot, is_legal_first_contact
 from table import Table
 
 STATE_BREAK_PLACE = 'break_place'   # 开球摆球：白球可在开球线左侧厨房区自由摆放
@@ -299,8 +299,13 @@ class Game:
                 cue.x, cue.y = mouse_pos
         renderer.draw_balls(screen, self.balls, font)
         if self.state == STATE_AIMING:
+            group = self.player_groups[self.current]
+            on_eight = self._shooter_on_eight()
+            forbidden = lambda n: not is_legal_first_contact(
+                n, self.open_table, group, on_eight)
             renderer.draw_aim(screen, find_cue(self.balls), self.aim_dir,
-                              self.balls, -self.english[1])   # spin_v = -dy（上=跟杆）
+                              self.balls, -self.english[1],   # spin_v = -dy（上=跟杆）
+                              is_forbidden=forbidden)
             renderer.draw_fine_slider(screen, font, self.fine_offset)
             renderer.draw_power_cue(screen, font, self.power, self.charging)
             renderer.draw_spin_icon(screen, self.english)
