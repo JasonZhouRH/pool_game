@@ -1,5 +1,5 @@
 from physics import Event, EVENT_POCKETED, EVENT_BALL_HIT, EVENT_CUSHION
-from rules import evaluate_shot
+from rules import evaluate_shot, is_legal_first_contact
 
 
 def hit(a, b):
@@ -96,3 +96,26 @@ def test_pocket_eight_with_scratch_loses():
     events = [hit(0, 8), pocket(8), pocket(0, 4)]
     r = evaluate_shot(events, open_table=False, shooter_group='solid', shooter_on_eight=True)
     assert r.winner_is_shooter is False
+
+
+# ---- 合法首球判定（瞄准时鬼球禁止样式用） ----
+
+def test_legal_first_open_table_non_eight_is_legal():
+    assert is_legal_first_contact(3, open_table=True, shooter_group=None, shooter_on_eight=False) is True
+    assert is_legal_first_contact(11, open_table=True, shooter_group=None, shooter_on_eight=False) is True
+
+
+def test_legal_first_open_table_eight_is_illegal():
+    assert is_legal_first_contact(8, open_table=True, shooter_group=None, shooter_on_eight=False) is False
+
+
+def test_legal_first_assigned_own_group_legal_opponent_illegal():
+    # 我是 solid：碰 solid 合法，碰 stripe / 8 非法
+    assert is_legal_first_contact(2, open_table=False, shooter_group='solid', shooter_on_eight=False) is True
+    assert is_legal_first_contact(9, open_table=False, shooter_group='solid', shooter_on_eight=False) is False
+    assert is_legal_first_contact(8, open_table=False, shooter_group='solid', shooter_on_eight=False) is False
+
+
+def test_legal_first_on_eight_only_eight_legal():
+    assert is_legal_first_contact(8, open_table=False, shooter_group='solid', shooter_on_eight=True) is True
+    assert is_legal_first_contact(2, open_table=False, shooter_group='solid', shooter_on_eight=True) is False

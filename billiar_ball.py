@@ -4,12 +4,13 @@ import sys
 import pygame
 
 import config
+import menu
 import physics
 import renderer
 from balls import create_standard_balls, find_cue, group_of
 from cue import (aim_direction, apply_fine_tune, clamp_english,
                  power_from_drag, velocity_from_aim)
-from rules import evaluate_shot
+from rules import evaluate_shot, is_legal_first_contact
 from table import Table
 
 STATE_BREAK_PLACE = 'break_place'   # 开球摆球：白球可在开球线左侧厨房区自由摆放
@@ -299,8 +300,13 @@ class Game:
                 cue.x, cue.y = mouse_pos
         renderer.draw_balls(screen, self.balls, font)
         if self.state == STATE_AIMING:
+            group = self.player_groups[self.current]
+            on_eight = self._shooter_on_eight()
+            forbidden = lambda n: not is_legal_first_contact(
+                n, self.open_table, group, on_eight)
             renderer.draw_aim(screen, find_cue(self.balls), self.aim_dir,
-                              self.balls, -self.english[1])   # spin_v = -dy（上=跟杆）
+                              self.balls, -self.english[1],   # spin_v = -dy（上=跟杆）
+                              is_forbidden=forbidden)
             renderer.draw_fine_slider(screen, font, self.fine_offset)
             renderer.draw_power_cue(screen, font, self.power, self.charging)
             renderer.draw_spin_icon(screen, self.english)
@@ -319,8 +325,13 @@ def main():
     screen = pygame.display.set_mode((config.WINDOW_WIDTH, config.WINDOW_HEIGHT))
     pygame.display.set_caption("2D 美式8球")
     font = pygame.font.SysFont('arialunicode,heitisc,pingfangsc,arial', 22)
+    title_font = pygame.font.SysFont('arialunicode,heitisc,pingfangsc,arial', 64)
     clock = pygame.time.Clock()
-    game = Game()
+
+    table = Table(config.TABLE_LEFT, config.TABLE_TOP,
+                  config.TABLE_RIGHT, config.TABLE_BOTTOM)
+    scene = 'menu'      # 'menu' 封面 / 'game' 对局
+    game = None
 
     while True:
         mouse_pos = pygame.mouse.get_pos()
@@ -328,9 +339,27 @@ def main():
             if ev.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
-            game.handle_event(ev, mouse_pos)
-        game.update()
-        game.draw(screen, font, mouse_pos)
+            if scene == 'menu':
+                if (ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1
+                        and menu.button_hit(*mouse_pos)):
+                    game = Game()          # 全新一局，比分清零
+                    scene = 'game'
+            else:  # scene == 'game'
+                if ev.type == pygame.KEYDOWN and ev.key == pygame.K_ESCAPE:
+                    scene = 'menu'         # 丢弃当前对局，返回封面
+                    game = None
+                else:
+                    game.handle_event(ev, mouse_pos)
+
+        if scene == 'game' and game is not None:
+            game.update()
+
+        if scene == 'menu':
+            renderer.draw_menu(screen, font, title_font, table)
+        else:
+            game.draw(screen, font, mouse_pos)
+            renderer.draw_back_hint(screen, font)
+
         pygame.display.flip()
         clock.tick(config.FPS)
 

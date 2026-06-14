@@ -186,3 +186,11 @@ def test_predict_draw_widens_separation_on_cut():
     pred = predict_aim(0.0, 0.0, 1.0, 0.0, balls, spin_v=-1.0)
     assert _angle_between(pred.object_dir, pred.cue_dir) > 90.0 + 1e-6
     assert isclose(hypot(*pred.cue_dir), 1.0, abs_tol=1e-9)
+
+
+def test_predict_returns_target_number():
+    # 命中 3 号球，预测应带回球号 3
+    balls = [Ball(0, 0.0, 0.0), Ball(3, 100.0, 0.0)]
+    pred = predict_aim(0.0, 0.0, 1.0, 0.0, balls)
+    assert pred is not None
+    assert pred.target_number == 3

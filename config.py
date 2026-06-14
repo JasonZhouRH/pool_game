@@ -64,6 +64,7 @@ COLOR_EIGHT = (20, 20, 20)
 COLOR_STRIPE_BAND = (245, 245, 245)
 COLOR_POWER_BAR = (220, 60, 60)
 COLOR_GHOST = (235, 235, 235)        # 鬼球（母球撞击瞬间位置）轮廓
+COLOR_GHOST_FORBIDDEN = (230, 60, 60)  # 非法首球时鬼球（红圈 + 斜杠）
 COLOR_OBJECT_PATH = (235, 220, 120)  # 目标球路径（沿连心线）
 COLOR_CUE_PATH = (120, 220, 235)     # 母球切线路径（90° 定杆分离）
 COLOR_SLIDER_TRACK = (70, 70, 78)    # 微调滑轨
@@ -85,3 +86,15 @@ BALL_BASE_COLORS = {
     6: (30, 140, 70),     # 绿
     7: (120, 40, 40),     # 栗
 }
+
+# ---- 封面菜单 ----
+MENU_TITLE = "美式8球"
+MENU_BTN_TEXT = "8球模式"
+MENU_BTN_W = 220            # 按钮宽
+MENU_BTN_H = 64             # 按钮高
+MENU_BTN_CY = 400           # 按钮中心 y（窗口下部，标题在其上方）
+
+COLOR_MENU_OVERLAY = (0, 0, 0, 150)   # 台面背景上的半透明黑遮罩 (RGBA)
+COLOR_MENU_BTN = (40, 140, 80)        # 按钮填充（呼应台呢绿）
+COLOR_MENU_BTN_TEXT = (245, 245, 245) # 按钮文字
+COLOR_MENU_TITLE = (245, 245, 245)    # 标题文字
