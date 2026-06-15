@@ -58,3 +58,21 @@ class Table:
             for i in range(count):
                 positions.append((cx, start_y + i * d))
         return positions
+
+    def nine_ball_foot_spot(self):
+        """脚点：右侧 3/4 处、中线上。9 球菱形架的顶点。"""
+        return (self.left + 0.75 * self.width, self.center_y)
+
+    def nine_ball_rack_positions(self):
+        """9 球菱形架：1-2-3-2-1 五列菱形，1 号球在脚点顶点。"""
+        foot_x, foot_y = self.nine_ball_foot_spot()
+        d = 2 * config.BALL_RADIUS + 1.0          # 同列相邻球心间距
+        col_dx = d * sqrt(3) / 2                  # 相邻列水平间距
+        counts = [1, 2, 3, 2, 1]
+        positions = []
+        for col, count in enumerate(counts):
+            cx = foot_x + col * col_dx
+            start_y = foot_y - (count - 1) * (d / 2)
+            for i in range(count):
+                positions.append((cx, start_y + i * d))
+        return positions

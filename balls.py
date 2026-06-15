@@ -50,6 +50,27 @@ def create_standard_balls(table):
     return balls
 
 
+def create_nine_ball_balls(table):
+    """母球放开球点，1-9 号球按菱形架摆放。
+
+    菱形布局（1-2-3-2-1 五列）：
+        列0(1球): index 0  —— 1 号球（顶点）
+        列1(2球): index 1,2 —— 其他球
+        列2(3球): index 3,4,5 —— 9 号球在中心 index 4
+        列3(2球): index 6,7 —— 其他球
+        列4(1球): index 8  —— 其他球
+    """
+    hx, hy = table.head_spot()
+    positions = table.nine_ball_rack_positions()
+    # Ball 1 at the front (index 0), ball 9 at center (index 4)
+    # Remaining balls 2-8 fill the rest
+    order = [1, 2, 3, 4, 9, 5, 6, 7, 8]
+    balls = [Ball(number=0, x=hx, y=hy)]
+    for number, (x, y) in zip(order, positions):
+        balls.append(Ball(number=number, x=x, y=y))
+    return balls
+
+
 def find_cue(balls):
     for b in balls:
         if b.number == 0:

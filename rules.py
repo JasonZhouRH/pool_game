@@ -97,3 +97,68 @@ def evaluate_shot(events, open_table, shooter_group, shooter_on_eight):
         assigned_group=assigned_group,
         winner_is_shooter=winner_is_shooter,
     )
+
+
+def is_lowest_ball_on_table(number, balls):
+    """返回 `number` 是否是台面上编号最小的球（不含母球 0）。"""
+    lowest = None
+    for b in balls:
+        if b.on_table and b.number != 0:
+            if lowest is None or b.number < lowest:
+                lowest = b.number
+    return lowest is not None and number == lowest
+
+
+def is_legal_nine_ball_contact(number, balls):
+    """该球作为母球首个碰到的球是否合法。9 球必须始终先碰台面最小号球。"""
+    return is_lowest_ball_on_table(number, balls)
+
+
+def evaluate_nine_ball_shot(events, lowest_on_table):
+    """评估一杆 9 球，返回 ShotResult。
+
+    lowest_on_table: 击球前台面上编号最小的球号（快照）；物理推进后落袋球已移除，不能事后判断。
+    """
+    pocketed_all = [e.data['number'] for e in events if e.type == EVENT_POCKETED]
+    cue_pocketed = 0 in pocketed_all
+    object_pocketed = [n for n in pocketed_all if n != 0]
+    nine_pocketed = 9 in pocketed_all
+    first_contact, contact_idx = _first_cue_contact(events)
+
+    # 碰库判定：仅统计母球首次碰到目标球之后的碰库事件
+    cushion_after_contact = first_contact is not None and any(
+        e.type == EVENT_CUSHION for e in events[contact_idx + 1:])
+
+    foul = False
+    reason = ''
+    if cue_pocketed:
+        foul, reason = True, '母球落袋'
+    elif first_contact is None:
+        foul, reason = True, '母球未碰到任何球'
+    elif first_contact != lowest_on_table:
+        foul, reason = True, '未先碰到台面最小号球'
+    elif not object_pocketed and not cushion_after_contact:
+        foul, reason = True, '空杆：碰球后无球进袋也无球碰库'
+
+    # 胜负判定
+    winner_is_shooter = None
+    if nine_pocketed:
+        if not foul:
+            winner_is_shooter = True     # 合法打进 9 球 → 胜
+        else:
+            winner_is_shooter = False    # 犯规打进 9 球 → 对手胜
+
+    # 续打判定：无犯规、未分胜负、且至少打进一球
+    continue_turn = False
+    if not foul and winner_is_shooter is None and object_pocketed:
+        continue_turn = True
+
+    return ShotResult(
+        pocketed=object_pocketed,
+        cue_pocketed=cue_pocketed,
+        foul=foul,
+        foul_reason=reason,
+        continue_turn=continue_turn,
+        assigned_group=None,            # 9 球无花色分组
+        winner_is_shooter=winner_is_shooter,
+    )

@@ -11,17 +11,24 @@ GROUP_LABEL = {'solid': '全色', 'stripe': '花色', None: '未定'}
 
 def draw_table(screen):
     screen.fill(config.COLOR_BG)
-    rail = pygame.Rect(
-        config.TABLE_LEFT - 24, config.TABLE_TOP - 24,
-        (config.TABLE_RIGHT - config.TABLE_LEFT) + 48,
-        (config.TABLE_BOTTOM - config.TABLE_TOP) + 48,
-    )
-    pygame.draw.rect(screen, config.COLOR_RAIL, rail, border_radius=18)
-    felt = pygame.Rect(
-        config.TABLE_LEFT, config.TABLE_TOP,
-        config.TABLE_RIGHT - config.TABLE_LEFT,
-        config.TABLE_BOTTOM - config.TABLE_TOP,
-    )
+
+    L, T = config.TABLE_LEFT, config.TABLE_TOP
+    R, B = config.TABLE_RIGHT, config.TABLE_BOTTOM
+
+    # 库边主体：比台呢大一圈的圆角矩形
+    rail = pygame.Rect(L - 36, T - 36, R - L + 72, B - T + 72)
+    pygame.draw.rect(screen, config.COLOR_RAIL, rail, border_radius=22)
+
+    # 内沿立体斜边：圆角矩形描边，高光+阴影偏移叠加
+    inset = 18
+    inner = pygame.Rect(L - inset, T - inset, R - L + inset * 2, B - T + inset * 2)
+    # 圆角描边，偏左上高光 + 偏右下阴影叠加
+    pygame.draw.rect(screen, config.COLOR_RAIL_HIGHLIGHT, inner, 3, border_radius=10)
+    shadow_inner = inner.move(2, 2)
+    pygame.draw.rect(screen, config.COLOR_RAIL_SHADOW, shadow_inner, 3, border_radius=10)
+
+    # 台呢
+    felt = pygame.Rect(L, T, R - L, B - T)
     pygame.draw.rect(screen, config.COLOR_FELT, felt)
 
 
@@ -68,14 +75,16 @@ def draw_aim(screen, cue, aim_dir, balls=None, spin_v=0.0, is_forbidden=None):
 
 
 def draw_fine_slider(screen, font, fine_offset):
-    """左侧竖直微调滑条。fine_offset ∈ [-1, 1]，-1=顶端、+1=底端。"""
+    """左侧竖直微调滑条。fine_offset 无上下界，视觉滑块循环 wrap。"""
     x = config.SLIDER_X
     top, bottom = config.SLIDER_TOP, config.SLIDER_BOTTOM
     pygame.draw.line(screen, config.COLOR_SLIDER_TRACK, (x, top), (x, bottom), 4)
     # 中点刻度（fine=0）
     mid = (top + bottom) // 2
     pygame.draw.line(screen, config.COLOR_SLIDER_TRACK, (x - 8, mid), (x + 8, mid), 2)
-    knob_y = int(top + (fine_offset + 1) / 2 * (bottom - top))
+    # 视觉位置 wrap：fine_offset 映射回 [-1, 1]
+    wrapped = ((fine_offset + 1.0) % 2.0) - 1.0
+    knob_y = int(top + (wrapped + 1) / 2 * (bottom - top))
     pygame.draw.circle(screen, config.COLOR_SLIDER_KNOB, (x, knob_y), config.SLIDER_KNOB_R)
     pygame.draw.circle(screen, (0, 0, 0), (x, knob_y), config.SLIDER_KNOB_R, 1)
     label = font.render("微调", True, config.COLOR_TEXT)
@@ -158,12 +167,17 @@ def draw_head_line(screen, table):
                      (x, int(table.top)), (x, int(table.bottom)), 2)
 
 
-def draw_hud(screen, font, player_groups, current_player, message):
-    p1 = GROUP_LABEL[player_groups[0]]
-    p2 = GROUP_LABEL[player_groups[1]]
+def draw_hud(screen, font, player_groups, current_player, message, mode='eight'):
     marker = ['  ', '  ']
     marker[current_player] = '▶ '
-    line1 = f"{marker[0]}玩家1: {p1}      {marker[1]}玩家2: {p2}"
+
+    if mode == 'nine':
+        line1 = f"{marker[0]}玩家1          {marker[1]}玩家2"
+    else:
+        p1 = GROUP_LABEL[player_groups[0]]
+        p2 = GROUP_LABEL[player_groups[1]]
+        line1 = f"{marker[0]}玩家1: {p1}      {marker[1]}玩家2: {p2}"
+
     screen.blit(font.render(line1, True, config.COLOR_TEXT), (40, 20))
     if message:
         screen.blit(font.render(message, True, config.COLOR_TEXT), (40, 52))
@@ -211,7 +225,7 @@ def draw_menu(screen, font, title_font, table):
 
 def draw_back_hint(screen, font):
     """对局界面右下角小灰字：提示按 ESC 返回主界面。"""
-    txt = font.render("ESC 返回主界面", True, config.COLOR_TEXT)
+    txt = font.render("ESC 菜单", True, config.COLOR_TEXT)
     screen.blit(txt, txt.get_rect(bottomright=(config.WINDOW_WIDTH - 20, config.WINDOW_HEIGHT - 14)))
 
 
@@ -224,3 +238,30 @@ def draw_menu_hint(screen, font, text):
     bottom = max(y + h for _bid, _label, _x, y, _w, h in rects)
     txt = font.render(text, True, config.COLOR_MENU_HINT)
     screen.blit(txt, txt.get_rect(center=(config.WINDOW_WIDTH // 2, bottom + 30)))
+
+
+def draw_mute_indicator(screen, font, muted):
+    """左下角静音指示。"""
+    txt = font.render("静音" if muted else "音效", True, config.COLOR_TEXT)
+    screen.blit(txt, txt.get_rect(bottomleft=(20, config.WINDOW_HEIGHT - 14)))
+
+
+def draw_pause_menu(screen, font):
+    """暂停菜单：半透明遮罩 + 三个按钮。"""
+    overlay = pygame.Surface((config.WINDOW_WIDTH, config.WINDOW_HEIGHT), pygame.SRCALPHA)
+    overlay.fill((0, 0, 0, 160))
+    screen.blit(overlay, (0, 0))
+
+    # 按钮布局与封面菜单一致
+    labels = ['继续', '重新开始', '退出']
+    w, h = config.MENU_BTN_W, config.MENU_BTN_H
+    step = h + config.MENU_BTN_GAP
+    x = (config.WINDOW_WIDTH - w) // 2
+    n = len(labels)
+    for i, label in enumerate(labels):
+        cy = config.WINDOW_HEIGHT // 2 + (i - (n - 1) / 2) * step
+        y = round(cy) - h // 2
+        pygame.draw.rect(screen, config.COLOR_MENU_BTN, (x, y, w, h), border_radius=12)
+        pygame.draw.rect(screen, (0, 0, 0), (x, y, w, h), 2, border_radius=12)
+        txt = font.render(label, True, config.COLOR_MENU_BTN_TEXT)
+        screen.blit(txt, txt.get_rect(center=(x + w // 2, y + h // 2)))

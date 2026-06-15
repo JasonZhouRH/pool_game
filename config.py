@@ -13,7 +13,7 @@ TABLE_BOTTOM = 520
 
 # ---- 球与袋 ----
 BALL_RADIUS = 11
-POCKET_RADIUS = 20
+POCKET_RADIUS = 24
 
 # ---- 物理参数 ----
 FRICTION = 0.985             # 每帧速度衰减系数
@@ -56,6 +56,8 @@ SPIN_DOT_R = 7               # 红点半径
 COLOR_BG = (30, 30, 35)
 COLOR_FELT = (20, 120, 60)
 COLOR_RAIL = (90, 55, 25)
+COLOR_RAIL_HIGHLIGHT = (140, 100, 60)  # 库边内沿高光（左上）
+COLOR_RAIL_SHADOW = (50, 30, 14)       # 库边内沿阴影（右下）
 COLOR_POCKET = (12, 12, 12)
 COLOR_LINE = (255, 255, 255)
 COLOR_TEXT = (235, 235, 235)

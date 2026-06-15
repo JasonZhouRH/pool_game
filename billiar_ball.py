@@ -7,10 +7,11 @@ import config
 import menu
 import physics
 import renderer
-from balls import create_standard_balls, find_cue, group_of
+import sounds
+from balls import create_nine_ball_balls, create_standard_balls, find_cue, group_of
 from cue import (aim_direction, apply_fine_tune, clamp_english,
                  power_from_drag, velocity_from_aim)
-from rules import evaluate_shot, is_legal_first_contact
+from rules import evaluate_shot, evaluate_nine_ball_shot, is_legal_first_contact, is_legal_nine_ball_contact
 from table import Table
 
 STATE_BREAK_PLACE = 'break_place'   # 开球摆球：白球可在开球线左侧厨房区自由摆放
@@ -23,29 +24,39 @@ OPPOSITE = {'solid': 'stripe', 'stripe': 'solid'}
 
 
 class Game:
-    def __init__(self):
+    def __init__(self, mode='eight', sound=None):
+        self.mode = mode
         self.table = Table(config.TABLE_LEFT, config.TABLE_TOP,
                            config.TABLE_RIGHT, config.TABLE_BOTTOM)
         self.scores = [0, 0]    # 跨局累计胜场，reset() 不清零，按 R 重开局保留
         self.reset()
+        self.sound = sound or sounds.SoundManager()
 
     def reset(self):
-        self.balls = create_standard_balls(self.table)
+        if self.mode == 'nine':
+            self.balls = create_nine_ball_balls(self.table)
+            self.player_groups = [None, None]
+            self.open_table = False
+            self.message = "9球模式：在开球线左侧移动鼠标摆放白球，点击确定"
+        else:
+            self.balls = create_standard_balls(self.table)
+            self.player_groups = [None, None]
+            self.open_table = True
+            self.message = "开球：在开球线左侧区域移动鼠标摆放白球，点击确定"
         self.current = 0
-        self.player_groups = [None, None]   # None=未分组
-        self.open_table = True
         self.state = STATE_BREAK_PLACE
-        self.message = "开球：在开球线左侧区域移动鼠标摆放白球，点击确定"
+        self._is_break = self.mode != 'nine'  # 8球开球不分组，下一杆才认领
         self.shot_events = []
         self.shot_on_eight = False   # 本杆开始时击球者是否已清完本组（开杆前快照）
         self.winner = None
         # 三区控制状态
         self.coarse_dir = (1.0, 0.0) # 鼠标粗瞄方向（未叠加微调）
         self.aim_dir = (1.0, 0.0)    # 当前合成瞄准方向（粗瞄 + 微调）
-        self.fine_offset = 0.0       # 左滑条 [-1, 1]
+        self.fine_offset = 0.0       # 左滑条，无上下界（循环滑动）
         self.charging = False        # 右球杆是否正在蓄力
         self.power = 0.0             # 当前蓄力 [0, 1]
         self.dragging_slider = False # 是否正在拖左滑条
+        self._slider_prev_y = 0     # 拖拽期间上一帧鼠标Y，用于增量累积
         self.aiming = False          # 是否正在按住鼠标瞄准（球台区）
         self.place_mode = 'kitchen'  # 摆球特权：'kitchen'开球/'free'自由球/None正常回合
         # 杆法（右上角红点控件）
@@ -55,24 +66,36 @@ class Game:
 
     # ---- 结算 ----
     def _shooter_on_eight(self):
+        if self.mode == 'nine':
+            return False
         g = self.player_groups[self.current]
         if g is None:
             return False
         return not any(b.on_table and group_of(b.number) == g for b in self.balls)
 
     def resolve_shot(self):
-        shooter_group = self.player_groups[self.current]
-        result = evaluate_shot(
-            self.shot_events,
-            open_table=self.open_table,
-            shooter_group=shooter_group,
-            shooter_on_eight=self.shot_on_eight,
-        )
-        # 分组认领
-        if result.assigned_group:
-            self.player_groups[self.current] = result.assigned_group
-            self.player_groups[1 - self.current] = OPPOSITE[result.assigned_group]
-            self.open_table = False
+        if self.mode == 'nine':
+            result = evaluate_nine_ball_shot(self.shot_events, self._lowest_on_table)
+        else:
+            shooter_group = self.player_groups[self.current]
+            result = evaluate_shot(
+                self.shot_events,
+                open_table=self.open_table,
+                shooter_group=shooter_group,
+                shooter_on_eight=self.shot_on_eight,
+            )
+        # 分组认领（仅8球模式，开球不分组）
+        if self.mode != 'nine' and result.assigned_group:
+            if self._is_break:
+                # 开球进球：显示进了什么，但不分组
+                group_name = '全色' if result.assigned_group == 'solid' else '花色'
+                self.message = f"玩家{self.current + 1} 开球进了{group_name}，台面仍开放"
+            else:
+                self.player_groups[self.current] = result.assigned_group
+                self.player_groups[1 - self.current] = OPPOSITE[result.assigned_group]
+                self.open_table = False
+        was_break = self._is_break
+        self._is_break = False  # 第一杆结束后不再处于开球阶段
         # 胜负
         if result.winner_is_shooter is True:
             self.winner = self.current
@@ -96,12 +119,18 @@ class Game:
             self.current = 1 - self.current
             self.place_mode = 'free'
             self.state = STATE_BALL_IN_HAND
-        elif result.continue_turn:
+        elif result.continue_turn and not was_break:
             self.message = f"玩家{self.current + 1} 进球，继续"
+            self.state = STATE_AIMING
+        elif result.continue_turn:
+            # 开球进球已在上方设置了 message，不覆盖
             self.state = STATE_AIMING
         else:
             self.current = 1 - self.current
-            self.message = f"轮到玩家{self.current + 1}" if not result.pocketed else "未进本组球，交换"
+            if self.mode == 'nine':
+                self.message = f"轮到玩家{self.current + 1}"
+            else:
+                self.message = f"轮到玩家{self.current + 1}" if not result.pocketed else "未进本组球，交换"
             self.state = STATE_AIMING
 
     # ---- 自由球放置合法性 ----
@@ -160,9 +189,11 @@ class Game:
         return clamp_english(dx, dy)
 
     def _slider_value_from_y(self, y):
+        """增量累积微调偏移（无上下界），轨道高度对应 fine_offset 变化 ±2。"""
         span = config.SLIDER_BOTTOM - config.SLIDER_TOP
-        frac = (y - config.SLIDER_TOP) / span
-        return max(-1.0, min(1.0, frac * 2 - 1))
+        delta = (y - self._slider_prev_y) / span * 2
+        self._slider_prev_y = y
+        return self.fine_offset + delta
 
     def _power_from_y(self, y):
         span = config.CUE_BOTTOM - config.CUE_TOP
@@ -175,12 +206,19 @@ class Game:
         cue = find_cue(self.balls)
         vx, vy = velocity_from_aim(self.aim_dir[0], self.aim_dir[1], self.power)
         cue.vx, cue.vy = vx, vy
+        self.sound.play_cue_hit()
         dx, dy = self.english
         cue.spin_v = -dy             # 红点偏上(dy<0)=跟杆(+)
         cue.spin_s = dx              # 红点偏右(dx>0)=右塞(+)
         self.shot_events = []
         # 在物理推进（移除落袋球）之前，快照本杆是否处于"打8号"阶段
         self.shot_on_eight = self._shooter_on_eight()
+        # 9球：快照击球前台面最小号球（物理推进后会移除落袋球，不能事后判断）
+        if self.mode == 'nine':
+            self._lowest_on_table = min(
+                (b.number for b in self.balls if b.on_table and b.number != 0),
+                default=None,
+            )
         self.charging = False
         self.power = 0.0
         self.aiming = False
@@ -246,10 +284,11 @@ class Game:
                 self.power = self._power_from_y(my)
             elif self._near_slider(mx, my):
                 self.dragging_slider = True
-                self.fine_offset = self._slider_value_from_y(my)
+                self._slider_prev_y = my
                 self._recompute_aim(self.coarse_dir)
             elif self._in_aim_zone(mx, my):
                 self.aiming = True         # 按住才瞄准，瞄准线立即朝向鼠标
+                self.fine_offset = 0.0     # 重新瞄准时重置微调
                 coarse = aim_direction(cue.x, cue.y, mx, my)
                 if coarse is not None:
                     self.coarse_dir = coarse
@@ -281,7 +320,14 @@ class Game:
 
     def update(self):
         if self.state == STATE_MOVING:
-            self.shot_events.extend(physics.step(self.balls, self.table))
+            new_events = physics.step(self.balls, self.table)
+            self.shot_events.extend(new_events)
+            # Play sounds for physics events
+            for e in new_events:
+                if e.type == 'pocketed':
+                    self.sound.play_pocket()
+                elif e.type == 'ball_hit':
+                    self.sound.play_ball_hit()
             if physics.all_stopped(self.balls):
                 self.resolve_shot()
 
@@ -302,8 +348,11 @@ class Game:
         if self.state == STATE_AIMING:
             group = self.player_groups[self.current]
             on_eight = self._shooter_on_eight()
-            forbidden = lambda n: not is_legal_first_contact(
-                n, self.open_table, group, on_eight)
+            if self.mode == 'nine':
+                forbidden = lambda n: not is_legal_nine_ball_contact(n, self.balls)
+            else:
+                forbidden = lambda n: not is_legal_first_contact(
+                    n, self.open_table, group, on_eight)
             renderer.draw_aim(screen, find_cue(self.balls), self.aim_dir,
                               self.balls, -self.english[1],   # spin_v = -dy（上=跟杆）
                               is_forbidden=forbidden)
@@ -314,10 +363,38 @@ class Game:
                 renderer.draw_spin_panel(screen, font, self.english)
         if self.state == STATE_BALL_IN_HAND:
             renderer.draw_ball_in_hand_hint(screen, font)
-        renderer.draw_hud(screen, font, self.player_groups, self.current, self.message)
+        renderer.draw_hud(screen, font, self.player_groups, self.current, self.message, mode=self.mode)
         renderer.draw_score(screen, font, self.scores)
         if self.state == STATE_GAMEOVER:
             renderer.draw_gameover(screen, font, self.winner)
+
+
+PAUSE_BUTTONS = [
+    ('continue', '继续'),
+    ('restart', '重新开始'),
+    ('quit', '退出'),
+]
+
+
+def _pause_button_rects():
+    """暂停菜单三个按钮的矩形。"""
+    w, h = config.MENU_BTN_W, config.MENU_BTN_H
+    step = h + config.MENU_BTN_GAP
+    x = (config.WINDOW_WIDTH - w) // 2
+    rects = []
+    n = len(PAUSE_BUTTONS)
+    for i, (bid, label) in enumerate(PAUSE_BUTTONS):
+        cy = config.WINDOW_HEIGHT // 2 + (i - (n - 1) / 2) * step
+        y = round(cy) - h // 2
+        rects.append((bid, label, x, y, w, h))
+    return rects
+
+
+def _pause_button_at(x, y):
+    for bid, _label, bx, by, w, h in _pause_button_rects():
+        if bx <= x <= bx + w and by <= y <= by + h:
+            return bid
+    return None
 
 
 def main():
@@ -332,6 +409,8 @@ def main():
                   config.TABLE_RIGHT, config.TABLE_BOTTOM)
     scene = 'menu'      # 'menu' 封面 / 'game' 对局
     game = None
+    paused = False
+    sound = sounds.SoundManager()  # 全局音效，菜单和对局共用
     hint_text = ""      # 封面临时提示文字，空串=不显示
     hint_until = 0      # 提示到期时间戳（ms, pygame.time.get_ticks）
 
@@ -341,28 +420,47 @@ def main():
             if ev.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
+            if ev.type == pygame.KEYDOWN and ev.key == pygame.K_m:
+                sound.muted = not sound.muted
             if scene == 'menu':
                 if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
                     clicked = menu.button_at(*mouse_pos)
+                    if clicked is not None:
+                        sound.play_btn_click()
                     if clicked == 'eight':
-                        game = Game()          # 全新一局，比分清零
+                        game = Game(sound=sound)          # 全新一局，比分清零
                         scene = 'game'
                         hint_text = ""         # 进游戏即清除残留提示
                         hint_until = 0
                     elif clicked == 'nine':
-                        hint_text = "9球模式 敬请期待"
-                        hint_until = pygame.time.get_ticks() + int(config.MENU_HINT_SECONDS * 1000)
+                        game = Game(mode='nine', sound=sound)
+                        scene = 'game'
+                        hint_text = ""
+                        hint_until = 0
                     elif clicked == 'snooker':
                         hint_text = "斯诺克 敬请期待"
                         hint_until = pygame.time.get_ticks() + int(config.MENU_HINT_SECONDS * 1000)
             else:  # scene == 'game'
                 if ev.type == pygame.KEYDOWN and ev.key == pygame.K_ESCAPE:
-                    scene = 'menu'         # 丢弃当前对局，返回封面
-                    game = None
-                else:
+                    paused = not paused
+                elif not paused:
                     game.handle_event(ev, mouse_pos)
+                elif paused and ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
+                    # 暂停菜单按钮处理
+                    btn = _pause_button_at(*mouse_pos)
+                    if btn is not None:
+                        sound.play_btn_click()
+                    if btn == 'continue':
+                        paused = False
+                    elif btn == 'restart':
+                        game.reset()
+                        paused = False
+                    elif btn == 'quit':
+                        scene = 'menu'
+                        game = None
+                        paused = False
 
-        if scene == 'game' and game is not None:
+        if scene == 'game' and game is not None and not paused:
             game.update()
 
         if scene == 'menu':
@@ -371,9 +469,13 @@ def main():
                 renderer.draw_menu_hint(screen, font, hint_text)
             else:
                 hint_text = ""   # 到期清空
+            renderer.draw_mute_indicator(screen, font, sound.muted)
         else:
             game.draw(screen, font, mouse_pos)
             renderer.draw_back_hint(screen, font)
+            renderer.draw_mute_indicator(screen, font, game.sound.muted)
+            if paused:
+                renderer.draw_pause_menu(screen, font)
 
         pygame.display.flip()
         clock.tick(config.FPS)
