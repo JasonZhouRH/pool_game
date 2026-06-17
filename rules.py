@@ -172,11 +172,6 @@ def evaluate_nine_ball_shot(events, lowest_on_table, is_ball_in_hand=False):
     )
 
 
-def is_legal_snooker_contact(number, balls):
-    """斯诺克台面任何球都可碰（简化规则，后续完善）。"""
-    return number != 0
-
-
 def snooker_balls_on(phase, next_color, balls):
     """当前阶段合法目标球号集合(ball-on)。
 
@@ -205,7 +200,6 @@ def evaluate_snooker_shot(events, balls, phase, next_color, table, free_ball=Fal
     table: Table 实例，用于彩球复位
     free_ball: 自由球——首碰任意球合法,进球按 ball-on 分值计,替身彩球复位。
     """
-    from balls import snooker_value
     pocketed_all = [e.data['number'] for e in events if e.type == EVENT_POCKETED]
     cue_pocketed = 0 in pocketed_all
     object_pocketed = [n for n in pocketed_all if n != 0]

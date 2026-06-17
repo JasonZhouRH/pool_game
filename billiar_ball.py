@@ -9,7 +9,7 @@ import physics
 import renderer
 import sounds
 from balls import (create_nine_ball_balls, create_snooker_balls,
-                   create_standard_balls, find_cue, group_of, snooker_ball_color)
+                   create_standard_balls, find_cue, group_of)
 from cue import (aim_direction, apply_fine_tune, clamp_english,
                  power_from_drag, velocity_from_aim)
 from rules import (evaluate_nine_ball_shot, evaluate_shot,
@@ -113,7 +113,6 @@ class Game:
             if foul_pts > 0:
                 self._snooker_scores[1 - self.current] += foul_pts
             # 彩球复位
-            from balls import snooker_ball_color as _sc
             for cn in respot:
                 for b in self.balls:
                     if b.number == cn and not b.on_table:
@@ -496,11 +495,7 @@ class Game:
                 renderer.draw_snooker_d(screen, self.table)
             renderer.draw_head_line(screen, self.table)
             cue = find_cue(self.balls)
-            # 始终跟随鼠标，只夹到台面边界内
-            cx = max(self.table.left + r, min(self.table.right - r, mouse_pos[0]))
-            cy = max(self.table.top + r, min(self.table.bottom - r, mouse_pos[1]))
-            cue.x, cue.y = cx, cy
-            # 始终跟随鼠标，不过滤合法性，避免卡顿
+            # 始终跟随鼠标，只夹到台面边界内（不过滤合法性，避免卡顿）
             cx = max(self.table.left + r, min(self.table.right - r, mouse_pos[0]))
             cy = max(self.table.top + r, min(self.table.bottom - r, mouse_pos[1]))
             cue.x, cue.y = cx, cy
