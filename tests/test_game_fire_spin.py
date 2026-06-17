@@ -98,3 +98,29 @@ def test_snooker_foul_cue_potted_goes_to_d(game_module):
     assert g.current == 1
     assert g.state == game_module.STATE_BREAK_PLACE
     assert g.place_mode == 'kitchen'
+
+
+def test_free_ball_set_when_snookered_after_foul(game_module):
+    # 对手犯规后,母球被一颗彩球完全挡住所有红球 → 判自由球
+    g = _snooker_game(game_module)
+    for b in g.balls:
+        b.on_table = b.number in (0, 1, 20)
+    cue = _find_cue(g.balls)
+    cue.x, cue.y = 100.0, 250.0
+    red = next(b for b in g.balls if b.number == 1)
+    red.x, red.y = 500.0, 250.0
+    pink = next(b for b in g.balls if b.number == 20)
+    pink.x, pink.y = 300.0, 250.0   # 正中间挡住
+    g.shot_events = [Event(EVENT_BALL_HIT, {'a': 0, 'b': 20})]
+    g._was_ball_in_hand = False
+    g.resolve_shot()
+    assert g.free_ball is True
+
+
+def test_free_ball_cleared_after_fire(game_module):
+    g = _snooker_game(game_module)
+    g.free_ball = True
+    g.aim_dir = (1.0, 0.0)
+    g.power = 0.5
+    g._fire()
+    assert g.free_ball is False

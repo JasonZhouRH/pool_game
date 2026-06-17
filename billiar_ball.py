@@ -14,7 +14,8 @@ from cue import (aim_direction, apply_fine_tune, clamp_english,
                  power_from_drag, velocity_from_aim)
 from rules import (evaluate_nine_ball_shot, evaluate_shot,
                    evaluate_snooker_shot, is_legal_first_contact,
-                   is_legal_nine_ball_contact)
+                   is_legal_nine_ball_contact, is_snookered,
+                   snooker_balls_on)
 from table import Table
 
 STATE_BREAK_PLACE = 'break_place'   # 开球摆球：白球可在开球线左侧厨房区自由摆放
@@ -82,6 +83,7 @@ class Game:
         self._slider_prev_y = 0     # 拖拽期间上一帧鼠标Y，用于增量累积
         self.aiming = False          # 是否正在按住鼠标瞄准（球台区）
         self.place_mode = 'kitchen'  # 摆球特权：'kitchen'开球/'free'自由球/None正常回合
+        self.free_ball = False       # 自由球:本杆可把任意球当 ball-on
         # 杆法（右上角红点控件）
         self.english = (0.0, 0.0)    # 红点归一化偏移 (dx,dy)，模长≤1；上=跟杆 右=右塞
         self.spin_panel_open = False # 放大面板是否打开
@@ -225,6 +227,12 @@ class Game:
                 if self.mode == 'snooker':
                     self.place_mode = None
                     self.state = STATE_AIMING
+                    cue = find_cue(self.balls)
+                    balls_on = snooker_balls_on(
+                        self._snooker_phase, self._snooker_next_color, self.balls)
+                    if is_snookered(cue, balls_on, self.balls):
+                        self.free_ball = True
+                        self.message = "自由球：可击打任意球作为目标球"
                 else:
                     self.place_mode = 'free'
                     self.state = STATE_BALL_IN_HAND
@@ -363,6 +371,7 @@ class Game:
         self.dragging_spin = False
         self._was_ball_in_hand = (self.place_mode == 'free')  # 快照是否自由球出杆
         self.place_mode = None       # 出杆后摆球特权失效
+        self.free_ball = False       # 出杆后自由球特权失效
         self.state = STATE_MOVING
 
     # ---- 事件处理 ----
