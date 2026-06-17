@@ -175,6 +175,21 @@ def is_legal_snooker_contact(number, balls):
     return number != 0
 
 
+def snooker_balls_on(phase, next_color, balls):
+    """当前阶段合法目标球号集合(ball-on)。
+
+    红球阶段:台面所有红球(1-15)。
+    定彩阶段(next_color 非 None):那一颗指定彩球。
+    自选彩球阶段(next_color is None):台面所有彩球(16-21)。
+    """
+    on_table = {b.number for b in balls if b.on_table}
+    if phase == 'red':
+        return {n for n in on_table if 1 <= n <= 15}
+    if next_color is not None:
+        return {next_color}
+    return {n for n in on_table if 16 <= n <= 21}
+
+
 # 斯诺克彩球号 → 颜色名映射
 _SNOOKER_COLOR_NAMES = {16: 'yellow', 17: 'green', 18: 'brown',
                          19: 'blue', 20: 'pink', 21: 'black'}

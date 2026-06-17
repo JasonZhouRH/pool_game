@@ -1,5 +1,6 @@
 from physics import Event, EVENT_POCKETED, EVENT_BALL_HIT, EVENT_CUSHION
-from rules import evaluate_shot, is_legal_first_contact
+from rules import evaluate_shot, is_legal_first_contact, snooker_balls_on
+from balls import Ball
 
 
 def hit(a, b):
@@ -119,3 +120,30 @@ def test_legal_first_assigned_own_group_legal_opponent_illegal():
 def test_legal_first_on_eight_only_eight_legal():
     assert is_legal_first_contact(8, open_table=False, shooter_group='solid', shooter_on_eight=True) is True
     assert is_legal_first_contact(2, open_table=False, shooter_group='solid', shooter_on_eight=True) is False
+
+
+def _snooker_balls(reds=range(1, 16), colors=range(16, 22), cue=True):
+    out = []
+    if cue:
+        out.append(Ball(number=0, x=0, y=0))
+    for n in reds:
+        out.append(Ball(number=n, x=0, y=0))
+    for n in colors:
+        out.append(Ball(number=n, x=0, y=0))
+    return out
+
+
+def test_balls_on_red_phase_is_all_reds():
+    balls = _snooker_balls()
+    assert snooker_balls_on('red', None, balls) == set(range(1, 16))
+
+
+def test_balls_on_named_color_is_single():
+    balls = _snooker_balls()
+    assert snooker_balls_on('color', 19, balls) == {19}
+
+
+def test_balls_on_free_choice_color_is_all_colors_on_table():
+    # 红球已清空、next_color=None(自选彩球阶段),只剩黄绿在台
+    balls = _snooker_balls(reds=[], colors=[16, 17])
+    assert snooker_balls_on('color', None, balls) == {16, 17}
