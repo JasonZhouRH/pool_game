@@ -1,9 +1,4 @@
-"""Game._fire 的杆法符号契约回归测试。
-
-23.py 文件名以数字开头，无法按模块名导入，故用 importlib 从路径加载。
-需要 pygame，但用 SDL dummy 驱动以免依赖真实显示。
-"""
-import importlib.util
+"""Game._fire 的杆法符号契约回归测试。需要 pygame,用 SDL dummy 驱动以免依赖真实显示。"""
 import os
 
 import pygame
@@ -17,11 +12,8 @@ def game_module():
     os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
     pygame.init()
     pygame.display.set_mode((1000, 600))
-    path = os.path.join(os.path.dirname(__file__), "..", "23.py")
-    spec = importlib.util.spec_from_file_location("game23", os.path.abspath(path))
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    yield module
+    import billiar_ball
+    yield billiar_ball
     pygame.quit()
 
 
