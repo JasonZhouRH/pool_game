@@ -316,3 +316,33 @@ def test_snookered_narrow_gap_too_tight_for_cue():
     block_b = _ball(19, 500, 250 - d)
     balls = [cue, target, block_a, block_b]
     assert is_snookered(cue, {1}, balls) is True
+
+
+def test_free_ball_pot_color_scores_ball_on_value():
+    # 自由球 + 红球阶段:把蓝球(19)当红球打进 → 得 1 分,蓝球复位,转打彩球
+    balls = _snooker_balls()
+    events = [hit(0, 19), pocket(19, 0)]
+    result, pts, foul_pts, respot, phase, nc = evaluate_snooker_shot(
+        events, balls, 'red', None, _table(), free_ball=True)
+    assert result.foul is False
+    assert pts == 1
+    assert respot == [19]
+    assert phase == 'color'
+
+
+def test_free_ball_any_first_contact_legal():
+    # 自由球 + 红球阶段:首碰彩球(本应犯规)→ 不犯规
+    balls = _snooker_balls()
+    events = [hit(0, 20), cushion(20)]
+    result, pts, foul_pts, respot, phase, nc = evaluate_snooker_shot(
+        events, balls, 'red', None, _table(), free_ball=True)
+    assert result.foul is False
+
+
+def test_free_ball_cue_potted_still_foul():
+    # 自由球不豁免母球落袋
+    balls = _snooker_balls()
+    events = [hit(0, 19), pocket(0, 0)]
+    result, pts, foul_pts, respot, phase, nc = evaluate_snooker_shot(
+        events, balls, 'red', None, _table(), free_ball=True)
+    assert result.foul is True

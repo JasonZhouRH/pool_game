@@ -197,12 +197,13 @@ _SNOOKER_COLOR_NAMES = {16: 'yellow', 17: 'green', 18: 'brown',
                          19: 'blue', 20: 'pink', 21: 'black'}
 
 
-def evaluate_snooker_shot(events, balls, phase, next_color, table):
+def evaluate_snooker_shot(events, balls, phase, next_color, table, free_ball=False):
     """评估一杆斯诺克，返回 ShotResult。
 
     phase: 'red' (必须打红球) 或 'color' (必须打指定彩球)
     next_color: phase='color' 时要求的彩球号 (16-21)，phase='red' 时为 None
     table: Table 实例，用于彩球复位
+    free_ball: 自由球——首碰任意球合法,进球按 ball-on 分值计,替身彩球复位。
     """
     from balls import snooker_value
     pocketed_all = [e.data['number'] for e in events if e.type == EVENT_POCKETED]
@@ -225,23 +226,25 @@ def evaluate_snooker_shot(events, balls, phase, next_color, table):
         foul, reason = True, '母球落袋'
     elif first_contact is None:
         foul, reason = True, '母球未碰到任何球'
-    elif phase == 'red' and not (1 <= first_contact <= 15):
-        foul, reason = True, '应先碰红球'
-    elif phase == 'color':
-        if next_color is not None and first_contact != next_color:
-            color_name = _SNOOKER_COLOR_NAMES.get(next_color, '?')
-            foul, reason = True, f'应先碰{color_name}球'
-        elif next_color is None and not (16 <= first_contact <= 21):
-            foul, reason = True, '应先碰彩球'
+    elif not free_ball:
+        # 自由球:首碰任意球都合法,跳过首碰判定
+        if phase == 'red' and not (1 <= first_contact <= 15):
+            foul, reason = True, '应先碰红球'
+        elif phase == 'color':
+            if next_color is not None and first_contact != next_color:
+                color_name = _SNOOKER_COLOR_NAMES.get(next_color, '?')
+                foul, reason = True, f'应先碰{color_name}球'
+            elif next_color is None and not (16 <= first_contact <= 21):
+                foul, reason = True, '应先碰彩球'
 
-    # 红球阶段打进彩球：即使首碰红球合法，落袋彩球也算犯规
-    if not foul and phase == 'red':
+    # 红球阶段打进彩球:非自由球时,即使首碰红球合法,落袋彩球也算犯规
+    if not foul and not free_ball and phase == 'red':
         illegal_potted = [n for n in object_pocketed if 16 <= n <= 21]
         if illegal_potted:
             foul, reason = True, '红球阶段打进彩球'
 
-    # 彩球阶段打进非目标球：仅升序阶段适用(自选槽任意彩球都是合法目标)
-    if not foul and phase == 'color' and next_color is not None:
+    # 彩球阶段打进非目标球:仅升序阶段适用(自选槽/自由球任意彩球都是合法目标)
+    if not foul and not free_ball and phase == 'color' and next_color is not None:
         illegal_potted = [n for n in object_pocketed if n not in balls_on]
         if illegal_potted:
             foul, reason = True, '打进了非目标彩球'
@@ -260,8 +263,13 @@ def evaluate_snooker_shot(events, balls, phase, next_color, table):
     # 计分：仅未犯规时累加分值
     points_scored = 0
     if not foul:
-        for n in object_pocketed:
-            points_scored += snooker_value(n)
+        if free_ball:
+            # 自由球:每颗进球按当前 ball-on 分值计(红球阶段=1)
+            ball_on_value = min((snooker_value(n) for n in balls_on), default=1)
+            points_scored = ball_on_value * len(object_pocketed)
+        else:
+            for n in object_pocketed:
+                points_scored += snooker_value(n)
 
     # 彩球复位：误进的彩球(犯规)必复位；合法的自选彩球(跟在红球后)也复位；
     # 升序阶段合法打进的彩球不复位(留在袋中)；红球从不复位。
@@ -269,7 +277,7 @@ def evaluate_snooker_shot(events, balls, phase, next_color, table):
     for n in object_pocketed:
         if not (16 <= n <= 21):
             continue
-        if foul or next_color is None:
+        if foul or next_color is None or free_ball:
             respot_colors.append(n)
 
     # 确定下一阶段
@@ -279,11 +287,13 @@ def evaluate_snooker_shot(events, balls, phase, next_color, table):
     color_order = (16, 17, 18, 19, 20, 21)
 
     if phase == 'red':
-        if not foul and any(1 <= n <= 15 for n in object_pocketed):
-            # 打进红球 → 下一颗打自选彩球
+        red_potted = any(1 <= n <= 15 for n in object_pocketed)
+        free_potted = free_ball and bool(object_pocketed)
+        if not foul and (red_potted or free_potted):
+            # 打进红球(或自由球替身) → 下一颗打自选彩球
             new_phase = 'color'
             new_next_color = None
-        # 其余(未进红球的安全球/失误，或犯规)仍是红球阶段
+        # 其余(未进球的安全球/失误，或犯规)仍是红球阶段
     elif next_color is None:
         # 自选彩球槽(跟在红球之后)
         if reds_left:

@@ -124,3 +124,21 @@ def test_free_ball_cleared_after_fire(game_module):
     g.power = 0.5
     g._fire()
     assert g.free_ball is False
+
+
+def test_free_ball_scoring_end_to_end(game_module):
+    # 自由球出杆后,把蓝球(19)当红球打进,应得 1 分(红球分值,非蓝5分)
+    g = _snooker_game(game_module)
+    g._snooker_phase = 'red'
+    g._snooker_next_color = None
+    g.current = 0
+    g.free_ball = True
+    g.aim_dir = (1.0, 0.0)
+    g.power = 0.5
+    g._fire()                       # 快照 _was_free_ball=True,清 free_ball
+    assert g._was_free_ball is True
+    before = g._snooker_scores[0]
+    g.shot_events = [Event(EVENT_BALL_HIT, {'a': 0, 'b': 19}),
+                     Event(EVENT_POCKETED, {'number': 19, 'pocket': 0})]
+    g.resolve_shot()
+    assert g._snooker_scores[0] == before + 1

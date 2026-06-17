@@ -84,6 +84,7 @@ class Game:
         self.aiming = False          # 是否正在按住鼠标瞄准（球台区）
         self.place_mode = 'kitchen'  # 摆球特权：'kitchen'开球/'free'自由球/None正常回合
         self.free_ball = False       # 自由球:本杆可把任意球当 ball-on
+        self._was_free_ball = False
         # 杆法（右上角红点控件）
         self.english = (0.0, 0.0)    # 红点归一化偏移 (dx,dy)，模长≤1；上=跟杆 右=右塞
         self.spin_panel_open = False # 放大面板是否打开
@@ -105,7 +106,7 @@ class Game:
         elif self.mode == 'snooker':
             result, pts, foul_pts, respot, new_phase, next_color = evaluate_snooker_shot(
                 self.shot_events, self.balls, self._snooker_phase,
-                self._snooker_next_color, self.table)
+                self._snooker_next_color, self.table, free_ball=self._was_free_ball)
             # 计分
             if pts > 0:
                 self._snooker_scores[self.current] += pts
@@ -371,6 +372,7 @@ class Game:
         self.dragging_spin = False
         self._was_ball_in_hand = (self.place_mode == 'free')  # 快照是否自由球出杆
         self.place_mode = None       # 出杆后摆球特权失效
+        self._was_free_ball = self.free_ball   # 快照本杆是否自由球(resolve 时用)
         self.free_ball = False       # 出杆后自由球特权失效
         self.state = STATE_MOVING
 
@@ -507,8 +509,11 @@ class Game:
             if self.mode == 'nine':
                 forbidden = lambda n: not is_legal_nine_ball_contact(n, self.balls)
             elif self.mode == 'snooker':
-                forbidden = lambda n: not _snooker_legal_contact(
-                    n, self._snooker_phase, self._snooker_next_color)
+                if self.free_ball:
+                    forbidden = lambda n: n == 0
+                else:
+                    forbidden = lambda n: not _snooker_legal_contact(
+                        n, self._snooker_phase, self._snooker_next_color)
             else:
                 forbidden = lambda n: not is_legal_first_contact(
                     n, self.open_table, group, on_eight)
