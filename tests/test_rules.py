@@ -346,3 +346,17 @@ def test_free_ball_cue_potted_still_foul():
     result, pts, foul_pts, respot, phase, nc = evaluate_snooker_shot(
         events, balls, 'red', None, _table(), free_ball=True)
     assert result.foul is True
+
+
+def test_ascending_wrong_pot_penalty_is_highest_value():
+    # 升序阶段该打绿球(17),正确首碰绿球但误把粉球(20)打进 → 犯规,
+    # 罚分取 max(4, 目标绿3, 误进粉6) = 6,误进的粉球复位,且不推进仍打绿球
+    balls = _snooker_balls(reds=[], colors=[17, 18, 19, 20, 21])
+    events = [hit(0, 17), pocket(20, 0)]
+    result, pts, foul_pts, respot, phase, nc = evaluate_snooker_shot(
+        events, balls, 'color', 17, _table())
+    assert result.foul is True
+    assert pts == 0
+    assert foul_pts == 6
+    assert respot == [20]
+    assert nc == 17
