@@ -215,6 +215,9 @@ def evaluate_snooker_shot(events, balls, phase, next_color, table):
     reason = ''
     foul_points = 0
 
+    # 当前合法目标球集合
+    balls_on = snooker_balls_on(phase, next_color, balls)
+
     # 犯规判定
     if cue_pocketed:
         foul, reason = True, '母球落袋'
@@ -229,12 +232,28 @@ def evaluate_snooker_shot(events, balls, phase, next_color, table):
         elif next_color is None and not (16 <= first_contact <= 21):
             foul, reason = True, '应先碰彩球'
 
-    # 犯规罚分：至少 4 分，如果涉及球分值更高则取高值
+    # 红球阶段打进彩球：即使首碰红球合法，落袋彩球也算犯规
+    if not foul and phase == 'red':
+        illegal_potted = [n for n in object_pocketed if 16 <= n <= 21]
+        if illegal_potted:
+            foul, reason = True, '红球阶段打进彩球'
+
+    # 彩球阶段打进非目标球：落袋了不该进的球
+    if not foul and phase == 'color':
+        illegal_potted = [n for n in object_pocketed if n not in balls_on]
+        if illegal_potted:
+            foul, reason = True, '打进了非目标彩球'
+
+    # 犯规罚分：取 4、目标球分值、误碰首球分值、误进球最高分值 的最大值
     if foul:
+        candidates = [4]
+        for n in balls_on:
+            candidates.append(snooker_value(n))
         if first_contact is not None:
-            foul_points = max(4, snooker_value(first_contact))
-        else:
-            foul_points = 4
+            candidates.append(snooker_value(first_contact))
+        for n in object_pocketed:
+            candidates.append(snooker_value(n))
+        foul_points = max(candidates)
 
     # 计分
     points_scored = 0

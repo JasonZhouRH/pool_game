@@ -1,5 +1,7 @@
 from physics import Event, EVENT_POCKETED, EVENT_BALL_HIT, EVENT_CUSHION
 from rules import evaluate_shot, is_legal_first_contact, snooker_balls_on
+from rules import evaluate_snooker_shot
+from table import Table
 from balls import Ball
 
 
@@ -147,3 +149,50 @@ def test_balls_on_free_choice_color_is_all_colors_on_table():
     # 红球已清空、next_color=None(自选彩球阶段),只剩黄绿在台
     balls = _snooker_balls(reds=[], colors=[16, 17])
     assert snooker_balls_on('color', None, balls) == {16, 17}
+
+
+def _table():
+    return Table(0, 0, 1000, 500)
+
+
+def test_red_phase_potting_color_is_foul():
+    # 红球阶段,母球先碰红球(合法首碰)但把蓝球(19)打进 → 犯规,不得分
+    balls = _snooker_balls()
+    events = [hit(0, 3), pocket(19, 0)]
+    result, pts, foul_pts, respot, phase, nc = evaluate_snooker_shot(
+        events, balls, 'red', None, _table())
+    assert result.foul is True
+    assert pts == 0
+    # 误进蓝球(5分),罚分取 max(4, 蓝5) = 5
+    assert foul_pts == 5
+
+
+def test_red_phase_potting_red_scores_one():
+    balls = _snooker_balls()
+    events = [hit(0, 3), pocket(3, 0)]
+    result, pts, foul_pts, respot, phase, nc = evaluate_snooker_shot(
+        events, balls, 'red', None, _table())
+    assert result.foul is False
+    assert pts == 1
+    assert phase == 'color'      # 打进红球后转打彩球
+    assert nc is None            # 自选彩球
+
+
+def test_foul_wrong_first_contact_black_penalty_seven():
+    # 红球阶段,母球先碰黑球(21) → 犯规,罚 7
+    balls = _snooker_balls()
+    events = [hit(0, 21)]
+    result, pts, foul_pts, respot, phase, nc = evaluate_snooker_shot(
+        events, balls, 'red', None, _table())
+    assert result.foul is True
+    assert foul_pts == 7
+
+
+def test_foul_air_shot_min_penalty_four():
+    # 空杆:母球没碰任何球 → 罚 4
+    balls = _snooker_balls()
+    events = [cushion(0)]
+    result, pts, foul_pts, respot, phase, nc = evaluate_snooker_shot(
+        events, balls, 'red', None, _table())
+    assert result.foul is True
+    assert foul_pts == 4
