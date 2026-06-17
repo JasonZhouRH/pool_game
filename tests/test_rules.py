@@ -196,3 +196,76 @@ def test_foul_air_shot_min_penalty_four():
         events, balls, 'red', None, _table())
     assert result.foul is True
     assert foul_pts == 4
+
+
+def test_red_phase_miss_keeps_red_phase():
+    # 红球阶段碰红球但没进、有碰库 → 不犯规,仍是红球阶段
+    balls = _snooker_balls()
+    events = [hit(0, 3), cushion(3)]
+    result, pts, foul_pts, respot, phase, nc = evaluate_snooker_shot(
+        events, balls, 'red', None, _table())
+    assert result.foul is False
+    assert phase == 'red'
+    assert nc is None
+
+
+def test_color_order_yellow_then_green():
+    # 清彩阶段:打进黄(16),下一颗应是绿(17)
+    balls = _snooker_balls(reds=[], colors=[16, 17, 18, 19, 20, 21])
+    for b in balls:
+        if b.number == 16:
+            b.on_table = False
+    events = [hit(0, 16), pocket(16, 0)]
+    result, pts, foul_pts, respot, phase, nc = evaluate_snooker_shot(
+        events, balls, 'color', 16, _table())
+    assert result.foul is False
+    assert pts == 2
+    assert phase == 'color'
+    assert nc == 17
+
+
+def test_color_phase_no_respot_in_color_order():
+    # 清彩阶段进的彩球不复位
+    balls = _snooker_balls(reds=[], colors=[16, 17, 18, 19, 20, 21])
+    for b in balls:
+        if b.number == 16:
+            b.on_table = False
+    events = [hit(0, 16), pocket(16, 0)]
+    result, pts, foul_pts, respot, phase, nc = evaluate_snooker_shot(
+        events, balls, 'color', 16, _table())
+    assert respot == []
+
+
+def test_red_phase_color_respots():
+    # 红彩交替:自选彩球阶段打进蓝球,蓝球复位,还有红球 → 回到打红球
+    balls = _snooker_balls()
+    events = [hit(0, 19), pocket(19, 0)]
+    result, pts, foul_pts, respot, phase, nc = evaluate_snooker_shot(
+        events, balls, 'color', None, _table())
+    assert result.foul is False
+    assert pts == 5
+    assert respot == [19]
+    assert phase == 'red'
+
+
+def test_red_phase_foul_color_pot_respots():
+    # 红球阶段误把蓝球打进 → 犯规,该彩球必须复位
+    balls = _snooker_balls()
+    events = [hit(0, 3), pocket(19, 0)]
+    result, pts, foul_pts, respot, phase, nc = evaluate_snooker_shot(
+        events, balls, 'red', None, _table())
+    assert result.foul is True
+    assert respot == [19]
+
+
+def test_last_red_free_color_then_ascending_sequence():
+    # 红球已清完,自选彩球槽打进蓝球(19,已离台) → 进入升序,从黄(16)开始
+    balls = _snooker_balls(reds=[], colors=[16, 17, 18, 20, 21])
+    events = [hit(0, 19), pocket(19, 0)]
+    result, pts, foul_pts, respot, phase, nc = evaluate_snooker_shot(
+        events, balls, 'color', None, _table())
+    assert result.foul is False
+    assert pts == 5
+    assert respot == [19]
+    assert phase == 'color'
+    assert nc == 16

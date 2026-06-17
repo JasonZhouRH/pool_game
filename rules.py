@@ -238,8 +238,8 @@ def evaluate_snooker_shot(events, balls, phase, next_color, table):
         if illegal_potted:
             foul, reason = True, '红球阶段打进彩球'
 
-    # 彩球阶段打进非目标球：落袋了不该进的球
-    if not foul and phase == 'color':
+    # 彩球阶段打进非目标球：仅升序阶段适用(自选槽任意彩球都是合法目标)
+    if not foul and phase == 'color' and next_color is not None:
         illegal_potted = [n for n in object_pocketed if n not in balls_on]
         if illegal_potted:
             foul, reason = True, '打进了非目标彩球'
@@ -255,65 +255,57 @@ def evaluate_snooker_shot(events, balls, phase, next_color, table):
             candidates.append(snooker_value(n))
         foul_points = max(candidates)
 
-    # 计分
+    # 计分：仅未犯规时累加分值
     points_scored = 0
-    respot_colors = []  # 需要复位的彩球列表
-
     if not foul:
         for n in object_pocketed:
             points_scored += snooker_value(n)
-            # 彩球在红球阶段需要复位
-            if phase == 'red' and n >= 16 and n <= 21:
-                respot_colors.append(n)
+
+    # 彩球复位：误进的彩球(犯规)必复位；合法的自选彩球(跟在红球后)也复位；
+    # 升序阶段合法打进的彩球不复位(留在袋中)；红球从不复位。
+    respot_colors = []
+    for n in object_pocketed:
+        if not (16 <= n <= 21):
+            continue
+        if foul or next_color is None:
+            respot_colors.append(n)
 
     # 确定下一阶段
     new_phase = phase
     new_next_color = next_color
+    reds_left = any(b.on_table and 1 <= b.number <= 15 for b in balls)
+    color_order = (16, 17, 18, 19, 20, 21)
 
-    if not foul:
-        if phase == 'red':
-            # 红球阶段：打进了红球→下一杆打彩球
-            reds_left = any(b.on_table and 1 <= b.number <= 15 for b in balls)
-            reds_potted_this_shot = any(1 <= n <= 15 for n in object_pocketed)
-            if not reds_left:
-                if reds_potted_this_shot:
-                    # 刚清完最后一颗红球，还需打一颗自选彩球
-                    new_phase = 'color'
-                    new_next_color = None
-                else:
-                    # 红球之前已清完，进入彩球顺序阶段
-                    new_phase = 'color'
-                    new_next_color = 16  # yellow
-            elif reds_potted_this_shot:
-                new_phase = 'color'
-                new_next_color = None  # 击球者自选彩球
-            else:
-                new_phase = 'red'
-                new_next_color = None
-        elif phase == 'color':
-            # 彩球阶段：按顺序打
-            color_order = [16, 17, 18, 19, 20, 21]  # yellow→black
-            # 确定当前打的是哪个彩球
-            if next_color is not None:
-                current_color = next_color
-            else:
-                # 自选阶段：从本杆打进的彩球中找最高分的作为当前
-                potted_colors = [n for n in object_pocketed if 16 <= n <= 21]
-                current_color = max(potted_colors) if potted_colors else 16
-            current_idx = color_order.index(current_color) if current_color in color_order else 0
-            # 找下一个在台上的彩球
-            next_idx = None
-            for idx in range(current_idx + 1, len(color_order)):
-                cn = color_order[idx]
+    if phase == 'red':
+        if not foul and any(1 <= n <= 15 for n in object_pocketed):
+            # 打进红球 → 下一颗打自选彩球
+            new_phase = 'color'
+            new_next_color = None
+        # 其余(未进红球的安全球/失误，或犯规)仍是红球阶段
+    elif next_color is None:
+        # 自选彩球槽(跟在红球之后)
+        if reds_left:
+            new_phase = 'red'        # 还有红球 → 回到打红球
+            new_next_color = None
+        else:
+            # 红球已清完 → 进入彩球升序阶段，从最低在台彩球开始
+            new_phase = 'color'
+            new_next_color = None
+            for cn in color_order:
                 if any(b.on_table and b.number == cn for b in balls):
-                    next_idx = idx
+                    new_next_color = cn
                     break
-            if next_idx is not None:
-                new_phase = 'color'
-                new_next_color = color_order[next_idx]
-            else:
-                new_phase = 'color'
-                new_next_color = None  # 所有球打完
+    else:
+        # 升序阶段
+        if not foul and next_color in object_pocketed:
+            idx = color_order.index(next_color)
+            new_phase = 'color'
+            new_next_color = None
+            for j in range(idx + 1, len(color_order)):
+                if any(b.on_table and b.number == color_order[j] for b in balls):
+                    new_next_color = color_order[j]
+                    break
+        # 未进/犯规 → 保持 next_color
 
     # 续打
     continue_turn = not foul and object_pocketed and points_scored > 0
