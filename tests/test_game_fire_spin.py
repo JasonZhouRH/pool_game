@@ -142,3 +142,17 @@ def test_free_ball_scoring_end_to_end(game_module):
                      Event(EVENT_POCKETED, {'number': 19, 'pocket': 0})]
     g.resolve_shot()
     assert g._snooker_scores[0] == before + 1
+
+
+def test_stalemate_g_key_resets_frame(game_module):
+    g = game_module.Game(mode='snooker')
+    g.state = game_module.STATE_AIMING
+    g._snooker_scores = [30, 20]
+    g.scores = [2, 1]                      # 跨局胜场
+    for b in g.balls[:5]:
+        b.on_table = False
+    ev = pygame.event.Event(pygame.KEYDOWN, key=pygame.K_g)
+    g.handle_event(ev, (0, 0))
+    assert g._snooker_scores == [0, 0]     # 本局分清零
+    assert g.scores == [2, 1]              # 跨局胜场保留
+    assert all(b.on_table for b in g.balls)  # 重新摆球

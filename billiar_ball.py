@@ -402,6 +402,13 @@ class Game:
                     self.state = STATE_AIMING
             return
 
+        # 僵局:斯诺克瞄准时按 G 重新摆球(跨局胜场保留)
+        if (self.state == STATE_AIMING and self.mode == 'snooker'
+                and ev.type == pygame.KEYDOWN and ev.key == pygame.K_g):
+            self.reset()
+            self.message = "僵局：重新摆球，按原顺序重赛"
+            return
+
         if self.state != STATE_AIMING:
             return
 
