@@ -76,3 +76,73 @@ def find_cue(balls):
         if b.number == 0:
             return b
     return None
+
+
+def snooker_ball_color(number):
+    """Return the color for a snooker ball by its number."""
+    if number == 0:
+        return config.COLOR_CUE
+    if 1 <= number <= 15:
+        return config.COLOR_SNOOKER_RED
+    if number == 16:
+        return config.COLOR_SNOOKER_YELLOW
+    if number == 17:
+        return config.COLOR_SNOOKER_GREEN
+    if number == 18:
+        return config.COLOR_SNOOKER_BROWN
+    if number == 19:
+        return config.COLOR_SNOOKER_BLUE
+    if number == 20:
+        return config.COLOR_SNOOKER_PINK
+    if number == 21:
+        return config.COLOR_SNOOKER_BLACK
+    return config.COLOR_CUE  # fallback
+
+
+def snooker_value(number):
+    """Return the point value for a snooker ball. Returns 0 for cue ball."""
+    if number == 0:
+        return 0
+    if 1 <= number <= 15:
+        return 1
+    if number == 16:
+        return 2
+    if number == 17:
+        return 3
+    if number == 18:
+        return 4
+    if number == 19:
+        return 5
+    if number == 20:
+        return 6
+    if number == 21:
+        return 7
+    return 0
+
+
+def create_snooker_balls(table):
+    """Create snooker balls: cue at head spot, 6 colors at their spots,
+    15 reds in a triangle behind pink spot."""
+    hx, hy = table.head_spot()
+    balls = [Ball(number=0, x=hx, y=hy)]
+
+    spots = table.snooker_spots()
+
+    # Six colors at their designated spots
+    # brown=18, yellow=16, green=17, blue=19, pink=20, black=21
+    color_map = {
+        'brown': 18,
+        'yellow': 16,
+        'green': 17,
+        'blue': 19,
+        'pink': 20,
+        'black': 21,
+    }
+    for name, number in color_map.items():
+        balls.append(Ball(number=number, x=spots[name][0], y=spots[name][1]))
+
+    # 15 reds (numbers 1-15) at rack positions
+    for number, (x, y) in zip(range(1, 16), table.snooker_rack_positions()):
+        balls.append(Ball(number=number, x=x, y=y))
+
+    return balls

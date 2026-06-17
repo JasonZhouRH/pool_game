@@ -1,12 +1,34 @@
 """所有绘制：球台、球、瞄准线、左微调滑条/右蓄力球杆、HUD、结束横幅。只读状态，不修改。"""
+import random
+
 import pygame
 
 import config
 import menu
-from balls import group_of, ball_color
+from balls import group_of, ball_color, snooker_ball_color
 from cue import predict_aim
 
 GROUP_LABEL = {'solid': '全色', 'stripe': '花色', None: '未定'}
+
+# 台呢纹理缓存
+_felt_texture = None
+
+
+def _make_felt_texture(w, h):
+    """生成台呢纹理：绿色底 + 随机噪点，模拟羊毛台呢质感。"""
+    surf = pygame.Surface((w, h))
+    surf.fill(config.COLOR_FELT)
+    r, g, b = config.COLOR_FELT
+    # 密集噪点：大范围亮度变化
+    for _ in range(w * h // 16):
+        px = random.randint(0, w - 1)
+        py = random.randint(0, h - 1)
+        delta = random.randint(-25, 25)
+        color = (max(0, min(255, r + delta)),
+                 max(0, min(255, g + delta)),
+                 max(0, min(255, b + delta)))
+        surf.set_at((px, py), color)
+    return surf
 
 
 def draw_table(screen):
@@ -27,9 +49,12 @@ def draw_table(screen):
     shadow_inner = inner.move(2, 2)
     pygame.draw.rect(screen, config.COLOR_RAIL_SHADOW, shadow_inner, 3, border_radius=10)
 
-    # 台呢
-    felt = pygame.Rect(L, T, R - L, B - T)
-    pygame.draw.rect(screen, config.COLOR_FELT, felt)
+    # 台呢（带纹理）
+    global _felt_texture
+    felt_w, felt_h = R - L, B - T
+    if _felt_texture is None or _felt_texture.get_size() != (felt_w, felt_h):
+        _felt_texture = _make_felt_texture(felt_w, felt_h)
+    screen.blit(_felt_texture, (L, T))
 
 
 def draw_pockets(screen, table):
@@ -37,20 +62,26 @@ def draw_pockets(screen, table):
         pygame.draw.circle(screen, config.COLOR_POCKET, (int(px), int(py)), config.POCKET_RADIUS)
 
 
-def draw_balls(screen, balls, font):
+def draw_balls(screen, balls, font, mode='eight'):
     r = config.BALL_RADIUS
+    is_snooker = (mode == 'snooker')
     for b in balls:
         if not b.on_table:
             continue
         cx, cy = int(b.x), int(b.y)
-        pygame.draw.circle(screen, ball_color(b.number), (cx, cy), r)
-        if group_of(b.number) == 'stripe':
+        color = snooker_ball_color(b.number) if is_snooker else ball_color(b.number)
+        pygame.draw.circle(screen, color, (cx, cy), r)
+        if not is_snooker and group_of(b.number) == 'stripe':
             band = pygame.Rect(0, 0, 2 * r, int(r * 0.9))
             band.center = (cx, cy)
             pygame.draw.rect(screen, config.COLOR_STRIPE_BAND, band)
         if b.number != 0:
-            txt = font.render(str(b.number), True, (0, 0, 0))
-            screen.blit(txt, txt.get_rect(center=(cx, cy)))
+            # 斯诺克不画号码
+            if is_snooker:
+                pass
+            else:
+                txt = font.render(str(b.number), True, (0, 0, 0))
+                screen.blit(txt, txt.get_rect(center=(cx, cy)))
         pygame.draw.circle(screen, (0, 0, 0), (cx, cy), r, 1)
 
 
@@ -167,11 +198,31 @@ def draw_head_line(screen, table):
                      (x, int(table.top)), (x, int(table.bottom)), 2)
 
 
-def draw_hud(screen, font, player_groups, current_player, message, mode='eight'):
+def draw_snooker_d(screen, table):
+    """斯诺克 D 区半圆：以棕球为圆心，半径到黄球，弧向左弯。"""
+    import math
+    cx, cy = table.snooker_d_center()
+    r = table.snooker_d_radius()
+    # 半圆弧：从绿球（下方）到黄球（上方），向左弯
+    yx, yy = table.snooker_spots()['yellow']
+    gx, gy = table.snooker_spots()['green']
+    start_angle = math.atan2(gy - cy, gx - cx)
+    end_angle = math.atan2(yy - cy, yx - cx)
+    # pygame 逆时针画弧，绿→黄经过 π（左侧），弧向左弯
+    rect = pygame.Rect(cx - r, cy - r, r * 2, r * 2)
+    pygame.draw.arc(screen, config.COLOR_HEAD_LINE, rect, start_angle, end_angle, 2)
+
+
+def draw_hud(screen, font, player_groups, current_player, message, mode='eight',
+             snooker_scores=None):
     marker = ['  ', '  ']
     marker[current_player] = '▶ '
 
-    if mode == 'nine':
+    if mode == 'snooker' and snooker_scores:
+        line1 = f"{marker[0]}玩家1: {snooker_scores[0]}分      {marker[1]}玩家2: {snooker_scores[1]}分"
+    elif mode == 'nine':
+        line1 = f"{marker[0]}玩家1          {marker[1]}玩家2"
+    elif mode == 'snooker':
         line1 = f"{marker[0]}玩家1          {marker[1]}玩家2"
     else:
         p1 = GROUP_LABEL[player_groups[0]]
@@ -181,6 +232,10 @@ def draw_hud(screen, font, player_groups, current_player, message, mode='eight')
     screen.blit(font.render(line1, True, config.COLOR_TEXT), (40, 20))
     if message:
         screen.blit(font.render(message, True, config.COLOR_TEXT), (40, 52))
+
+    if mode == 'snooker':
+        hint = font.render("G=僵局重摆", True, config.COLOR_TEXT)
+        screen.blit(hint, (40, 78))
 
 
 def draw_score(screen, font, scores):

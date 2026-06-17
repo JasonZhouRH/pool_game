@@ -78,6 +78,15 @@ COLOR_SPIN_BALL = (245, 245, 245)    # 杆法控件白球面
 COLOR_SPIN_DOT = (220, 50, 50)       # 杆法红点（击打点）
 COLOR_SPIN_RING = (0, 0, 0)          # 杆法控件轮廓/十字参考
 
+# ---- 斯诺克球色 ----
+COLOR_SNOOKER_RED = (200, 30, 30)
+COLOR_SNOOKER_YELLOW = (220, 200, 40)
+COLOR_SNOOKER_GREEN = (30, 150, 70)
+COLOR_SNOOKER_BROWN = (120, 70, 40)
+COLOR_SNOOKER_BLUE = (40, 80, 210)
+COLOR_SNOOKER_PINK = (230, 140, 160)
+COLOR_SNOOKER_BLACK = (20, 20, 20)
+
 # 1-7 号基础色；花色 9-15 复用同色相 + 白带
 BALL_BASE_COLORS = {
     1: (230, 200, 40),    # 黄

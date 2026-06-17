@@ -1,15 +1,12 @@
-"""Game._fire 的杆法符号契约回归测试。
-
-23.py 文件名以数字开头，无法按模块名导入，故用 importlib 从路径加载。
-需要 pygame，但用 SDL dummy 驱动以免依赖真实显示。
-"""
-import importlib.util
+"""Game._fire 的杆法符号契约回归测试。需要 pygame,用 SDL dummy 驱动以免依赖真实显示。"""
 import os
 
 import pygame
 import pytest
 
 from balls import find_cue
+from balls import find_cue as _find_cue
+from physics import Event, EVENT_POCKETED, EVENT_BALL_HIT
 
 
 @pytest.fixture(scope="module")
@@ -17,11 +14,8 @@ def game_module():
     os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
     pygame.init()
     pygame.display.set_mode((1000, 600))
-    path = os.path.join(os.path.dirname(__file__), "..", "23.py")
-    spec = importlib.util.spec_from_file_location("game23", os.path.abspath(path))
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    yield module
+    import billiar_ball
+    yield billiar_ball
     pygame.quit()
 
 
@@ -71,3 +65,94 @@ def test_fire_resets_spin_ui_state(game_module):
     assert g.english == (0.0, 0.0)
     assert g.spin_panel_open is False
     assert g.dragging_spin is False
+
+
+def _snooker_game(game_module):
+    g = game_module.Game(mode='snooker')
+    g.state = game_module.STATE_AIMING
+    g.current = 0
+    return g
+
+
+def test_snooker_foul_cue_stays_when_not_potted(game_module):
+    # 犯规但母球未落袋:对手原位接着打,不进摆球状态
+    g = _snooker_game(game_module)
+    cue = _find_cue(g.balls)
+    cue.x, cue.y = 333.0, 222.0
+    # 红球阶段先碰黑球(21) → 犯规,母球未落袋
+    g.shot_events = [Event(EVENT_BALL_HIT, {'a': 0, 'b': 21})]
+    g._was_ball_in_hand = False
+    g.resolve_shot()
+    assert g.current == 1                      # 换对手
+    assert g.state == game_module.STATE_AIMING # 原位打,不摆球
+    assert g.place_mode is None                # 无摆球特权
+    assert (cue.x, cue.y) == (333.0, 222.0)    # 母球没动
+
+
+def test_snooker_foul_cue_potted_goes_to_d(game_module):
+    # 犯规且母球落袋:对手在 D 区摆球
+    g = _snooker_game(game_module)
+    g.shot_events = [Event(EVENT_POCKETED, {'number': 0, 'pocket': 0})]
+    g._was_ball_in_hand = False
+    g.resolve_shot()
+    assert g.current == 1
+    assert g.state == game_module.STATE_BREAK_PLACE
+    assert g.place_mode == 'kitchen'
+
+
+def test_free_ball_set_when_snookered_after_foul(game_module):
+    # 对手犯规后,母球被一颗彩球完全挡住所有红球 → 判自由球
+    g = _snooker_game(game_module)
+    for b in g.balls:
+        b.on_table = b.number in (0, 1, 20)
+    cue = _find_cue(g.balls)
+    cue.x, cue.y = 100.0, 250.0
+    red = next(b for b in g.balls if b.number == 1)
+    red.x, red.y = 500.0, 250.0
+    pink = next(b for b in g.balls if b.number == 20)
+    pink.x, pink.y = 300.0, 250.0   # 正中间挡住
+    g.shot_events = [Event(EVENT_BALL_HIT, {'a': 0, 'b': 20})]
+    g._was_ball_in_hand = False
+    g.resolve_shot()
+    assert g.free_ball is True
+
+
+def test_free_ball_cleared_after_fire(game_module):
+    g = _snooker_game(game_module)
+    g.free_ball = True
+    g.aim_dir = (1.0, 0.0)
+    g.power = 0.5
+    g._fire()
+    assert g.free_ball is False
+
+
+def test_free_ball_scoring_end_to_end(game_module):
+    # 自由球出杆后,把蓝球(19)当红球打进,应得 1 分(红球分值,非蓝5分)
+    g = _snooker_game(game_module)
+    g._snooker_phase = 'red'
+    g._snooker_next_color = None
+    g.current = 0
+    g.free_ball = True
+    g.aim_dir = (1.0, 0.0)
+    g.power = 0.5
+    g._fire()                       # 快照 _was_free_ball=True,清 free_ball
+    assert g._was_free_ball is True
+    before = g._snooker_scores[0]
+    g.shot_events = [Event(EVENT_BALL_HIT, {'a': 0, 'b': 19}),
+                     Event(EVENT_POCKETED, {'number': 19, 'pocket': 0})]
+    g.resolve_shot()
+    assert g._snooker_scores[0] == before + 1
+
+
+def test_stalemate_g_key_resets_frame(game_module):
+    g = game_module.Game(mode='snooker')
+    g.state = game_module.STATE_AIMING
+    g._snooker_scores = [30, 20]
+    g.scores = [2, 1]                      # 跨局胜场
+    for b in g.balls[:5]:
+        b.on_table = False
+    ev = pygame.event.Event(pygame.KEYDOWN, key=pygame.K_g)
+    g.handle_event(ev, (0, 0))
+    assert g._snooker_scores == [0, 0]     # 本局分清零
+    assert g.scores == [2, 1]              # 跨局胜场保留
+    assert all(b.on_table for b in g.balls)  # 重新摆球

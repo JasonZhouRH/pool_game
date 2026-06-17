@@ -8,10 +8,14 @@ import menu
 import physics
 import renderer
 import sounds
-from balls import create_nine_ball_balls, create_standard_balls, find_cue, group_of
+from balls import (create_nine_ball_balls, create_snooker_balls,
+                   create_standard_balls, find_cue, group_of, snooker_ball_color)
 from cue import (aim_direction, apply_fine_tune, clamp_english,
                  power_from_drag, velocity_from_aim)
-from rules import evaluate_shot, evaluate_nine_ball_shot, is_legal_first_contact, is_legal_nine_ball_contact
+from rules import (evaluate_nine_ball_shot, evaluate_shot,
+                   evaluate_snooker_shot, is_legal_first_contact,
+                   is_legal_nine_ball_contact, is_snookered,
+                   snooker_balls_on)
 from table import Table
 
 STATE_BREAK_PLACE = 'break_place'   # 开球摆球：白球可在开球线左侧厨房区自由摆放
@@ -21,6 +25,18 @@ STATE_BALL_IN_HAND = 'ball_in_hand'
 STATE_GAMEOVER = 'gameover'
 
 OPPOSITE = {'solid': 'stripe', 'stripe': 'solid'}
+
+
+def _snooker_legal_contact(number, phase, next_color):
+    """斯诺克瞄准用：判断击打该球是否合法。"""
+    if number == 0:
+        return False
+    if phase == 'red':
+        return 1 <= number <= 15
+    # phase == 'color'
+    if next_color is None:
+        return 16 <= number <= 21  # 自选彩球
+    return number == next_color
 
 
 class Game:
@@ -38,6 +54,14 @@ class Game:
             self.player_groups = [None, None]
             self.open_table = False
             self.message = "9球模式：在开球线左侧移动鼠标摆放白球，点击确定"
+        elif self.mode == 'snooker':
+            self.balls = create_snooker_balls(self.table)
+            self.player_groups = [None, None]
+            self.open_table = False
+            self._snooker_phase = 'red'
+            self._snooker_next_color = None
+            self._snooker_scores = [0, 0]
+            self.message = "斯诺克模式：在D区移动鼠标摆放白球，点击确定"
         else:
             self.balls = create_standard_balls(self.table)
             self.player_groups = [None, None]
@@ -59,6 +83,8 @@ class Game:
         self._slider_prev_y = 0     # 拖拽期间上一帧鼠标Y，用于增量累积
         self.aiming = False          # 是否正在按住鼠标瞄准（球台区）
         self.place_mode = 'kitchen'  # 摆球特权：'kitchen'开球/'free'自由球/None正常回合
+        self.free_ball = False       # 自由球:本杆可把任意球当 ball-on
+        self._was_free_ball = False
         # 杆法（右上角红点控件）
         self.english = (0.0, 0.0)    # 红点归一化偏移 (dx,dy)，模长≤1；上=跟杆 右=右塞
         self.spin_panel_open = False # 放大面板是否打开
@@ -75,7 +101,75 @@ class Game:
 
     def resolve_shot(self):
         if self.mode == 'nine':
-            result = evaluate_nine_ball_shot(self.shot_events, self._lowest_on_table)
+            result = evaluate_nine_ball_shot(self.shot_events, self._lowest_on_table,
+                                             is_ball_in_hand=self._was_ball_in_hand)
+        elif self.mode == 'snooker':
+            result, pts, foul_pts, respot, new_phase, next_color = evaluate_snooker_shot(
+                self.shot_events, self.balls, self._snooker_phase,
+                self._snooker_next_color, self.table, free_ball=self._was_free_ball)
+            # 计分
+            if pts > 0:
+                self._snooker_scores[self.current] += pts
+            if foul_pts > 0:
+                self._snooker_scores[1 - self.current] += foul_pts
+            # 彩球复位
+            from balls import snooker_ball_color as _sc
+            for cn in respot:
+                for b in self.balls:
+                    if b.number == cn and not b.on_table:
+                        rx, ry = self.table.snooker_respot_position(
+                            {16: 'yellow', 17: 'green', 18: 'brown',
+                             19: 'blue', 20: 'pink', 21: 'black'}[cn],
+                            self.balls)
+                        b.x, b.y = rx, ry
+                        b.vx, b.vy = 0.0, 0.0
+                        b.on_table = True
+                        break
+            # 更新阶段
+            self._snooker_phase = new_phase
+            self._snooker_next_color = next_color
+            # 决胜黑球：仅剩黑球时，进球或犯规结束本局
+            only_black_left = (
+                not any(b.on_table and b.number != 0 and b.number != 21 for b in self.balls)
+                and any(b.on_table and b.number == 21 for b in self.balls)
+            )
+            if only_black_left and (result.foul or 21 in result.pocketed):
+                s0, s1 = self._snooker_scores
+                if s0 == s1:
+                    # 平分：黑球复位，白球放 D 区，继续
+                    for b in self.balls:
+                        if b.number == 21 and not b.on_table:
+                            bx, by = self.table.snooker_spots()['black']
+                            b.x, b.y = bx, by
+                            b.vx, b.vy = 0.0, 0.0
+                            b.on_table = True
+                            break
+                    cue = find_cue(self.balls)
+                    cue.x, cue.y = self.table.snooker_d_center()
+                    self._snooker_phase = 'color'
+                    self._snooker_next_color = 21
+                    self.message = "平分，黑球复位，继续决胜"
+                    self.state = STATE_AIMING
+                    self.current = 0  # 先手开球
+                    return
+                else:
+                    self.winner = 0 if s0 > s1 else 1
+                    self.scores[self.winner] += 1
+                    self.state = STATE_GAMEOVER
+                    return
+            # 所有球清完：比分数定胜负
+            all_off = not any(b.on_table and b.number != 0 for b in self.balls)
+            if all_off:
+                s0, s1 = self._snooker_scores
+                if s0 > s1:
+                    self.winner = 0
+                elif s1 > s0:
+                    self.winner = 1
+                else:
+                    self.winner = 0  # 平局先手胜
+                self.scores[self.winner] += 1
+                self.state = STATE_GAMEOVER
+                return
         else:
             shooter_group = self.player_groups[self.current]
             result = evaluate_shot(
@@ -110,24 +204,65 @@ class Game:
         # 母球落袋：复位并交给对手自由球
         if result.cue_pocketed:
             cue = find_cue(self.balls)
-            hx, hy = self.table.head_spot()
+            if self.mode == 'snooker':
+                hx, hy = self.table.snooker_d_center()
+            else:
+                hx, hy = self.table.head_spot()
             cue.x, cue.y, cue.vx, cue.vy = hx, hy, 0.0, 0.0
             cue.on_table = True
         # 回合切换
         if result.foul:
             self.message = f"玩家{self.current + 1} 犯规：{result.foul_reason}"
             self.current = 1 - self.current
-            self.place_mode = 'free'
-            self.state = STATE_BALL_IN_HAND
+            if result.cue_pocketed:
+                # 母球落袋:对手在 D 区(斯诺克)/开球区(8球)摆放
+                if self.mode == 'snooker':
+                    self.place_mode = 'kitchen'
+                    self.state = STATE_BREAK_PLACE
+                    self.message = "犯规后在D区移动鼠标摆放白球，点击确定"
+                else:
+                    self.place_mode = 'free'
+                    self.state = STATE_BALL_IN_HAND
+            else:
+                # 母球未落袋:斯诺克原位接着打;8球给自由球
+                if self.mode == 'snooker':
+                    self.place_mode = None
+                    self.state = STATE_AIMING
+                    cue = find_cue(self.balls)
+                    balls_on = snooker_balls_on(
+                        self._snooker_phase, self._snooker_next_color, self.balls)
+                    if is_snookered(cue, balls_on, self.balls):
+                        self.free_ball = True
+                        self.message = "自由球：可击打任意球作为目标球"
+                else:
+                    self.place_mode = 'free'
+                    self.state = STATE_BALL_IN_HAND
         elif result.continue_turn and not was_break:
-            self.message = f"玩家{self.current + 1} 进球，继续"
+            if self.mode == 'snooker':
+                if self._snooker_phase == 'red':
+                    self.message = f"玩家{self.current + 1} 进球，继续击打红球"
+                elif self._snooker_next_color:
+                    cn = {16: '黄', 17: '绿', 18: '棕', 19: '蓝', 20: '粉', 21: '黑'}.get(self._snooker_next_color, '?')
+                    self.message = f"玩家{self.current + 1} 进球，继续击打{cn}球"
+                else:
+                    self.message = f"玩家{self.current + 1} 进球，继续"
+            else:
+                self.message = f"玩家{self.current + 1} 进球，继续"
             self.state = STATE_AIMING
         elif result.continue_turn:
             # 开球进球已在上方设置了 message，不覆盖
             self.state = STATE_AIMING
         else:
             self.current = 1 - self.current
-            if self.mode == 'nine':
+            if self.mode == 'snooker':
+                if self._snooker_phase == 'red':
+                    self.message = f"轮到玩家{self.current + 1}，击打红球"
+                elif self._snooker_next_color:
+                    cn = {16: '黄', 17: '绿', 18: '棕', 19: '蓝', 20: '粉', 21: '黑'}.get(self._snooker_next_color, '?')
+                    self.message = f"轮到玩家{self.current + 1}，击打{cn}球"
+                else:
+                    self.message = f"轮到玩家{self.current + 1}"
+            elif self.mode == 'nine':
                 self.message = f"轮到玩家{self.current + 1}"
             else:
                 self.message = f"轮到玩家{self.current + 1}" if not result.pocketed else "未进本组球，交换"
@@ -147,12 +282,21 @@ class Game:
                 return False
         return True
 
-    # ---- 开球摆球：限制在开球线左侧的厨房区 ----
-    def _kitchen_valid(self, x, y):
-        """开球摆球合法性：在台内、且球完全位于开球线左侧。"""
+    # ---- 斯诺克 D 区摆球合法性 ----
+    def _snooker_d_valid(self, x, y):
+        """斯诺克开球：白球必须在 D 区内或弧线上。"""
         if not self._placement_valid(x, y):
             return False
-        return x + config.BALL_RADIUS <= self.table.head_line_x()
+        cx, cy = self.table.snooker_d_center()
+        r = self.table.snooker_d_radius()
+        dist = ((x - cx) ** 2 + (y - cy) ** 2) ** 0.5
+        # 在 D 区半圆内（左侧）且在线左侧
+        return dist <= r and x <= self.table.baulk_line_x()
+    def _kitchen_valid(self, x, y):
+        """开球摆球合法性：在台内、且球心在开球线上或左侧。"""
+        if not self._placement_valid(x, y):
+            return False
+        return x <= self.table.head_line_x()
 
     # ---- 三区控制命中判定 ----
     def _near_slider(self, x, y):
@@ -226,7 +370,10 @@ class Game:
         self.english = (0.0, 0.0)    # 出杆后杆法归零
         self.spin_panel_open = False # 出杆后自动收起放大面板
         self.dragging_spin = False
+        self._was_ball_in_hand = (self.place_mode == 'free')  # 快照是否自由球出杆
         self.place_mode = None       # 出杆后摆球特权失效
+        self._was_free_ball = self.free_ball   # 快照本杆是否自由球(resolve 时用)
+        self.free_ball = False       # 出杆后自由球特权失效
         self.state = STATE_MOVING
 
     # ---- 事件处理 ----
@@ -238,7 +385,8 @@ class Game:
 
         if self.state == STATE_BREAK_PLACE:
             if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
-                if self._kitchen_valid(*mouse_pos):
+                valid = self._snooker_d_valid(*mouse_pos) if self.mode == 'snooker' else self._kitchen_valid(*mouse_pos)
+                if valid:
                     cue = find_cue(self.balls)
                     cue.x, cue.y = mouse_pos
                     self.message = "瞄准：点白球可重新摆放；按住鼠标定方向，右球杆蓄力松手击球"
@@ -252,6 +400,13 @@ class Game:
                     cue.x, cue.y = mouse_pos
                     self.message = "瞄准：点白球可重新摆放；按住鼠标定方向，右球杆蓄力松手击球"
                     self.state = STATE_AIMING
+            return
+
+        # 僵局:斯诺克瞄准时按 G 重新摆球(跨局胜场保留)
+        if (self.state == STATE_AIMING and self.mode == 'snooker'
+                and ev.type == pygame.KEYDOWN and ev.key == pygame.K_g):
+            self.reset()
+            self.message = "僵局：重新摆球，按原顺序重赛"
             return
 
         if self.state != STATE_AIMING:
@@ -333,23 +488,39 @@ class Game:
 
     # ---- 绘制 ----
     def draw(self, screen, font, mouse_pos):
+        r = config.BALL_RADIUS
         renderer.draw_table(screen)
         renderer.draw_pockets(screen, self.table)
         if self.state == STATE_BREAK_PLACE:
+            if self.mode == 'snooker':
+                renderer.draw_snooker_d(screen, self.table)
             renderer.draw_head_line(screen, self.table)
             cue = find_cue(self.balls)
-            if self._kitchen_valid(*mouse_pos):
-                cue.x, cue.y = mouse_pos
+            # 始终跟随鼠标，只夹到台面边界内
+            cx = max(self.table.left + r, min(self.table.right - r, mouse_pos[0]))
+            cy = max(self.table.top + r, min(self.table.bottom - r, mouse_pos[1]))
+            cue.x, cue.y = cx, cy
+            # 始终跟随鼠标，不过滤合法性，避免卡顿
+            cx = max(self.table.left + r, min(self.table.right - r, mouse_pos[0]))
+            cy = max(self.table.top + r, min(self.table.bottom - r, mouse_pos[1]))
+            cue.x, cue.y = cx, cy
         if self.state == STATE_BALL_IN_HAND:
             cue = find_cue(self.balls)
-            if self._placement_valid(*mouse_pos):
-                cue.x, cue.y = mouse_pos
-        renderer.draw_balls(screen, self.balls, font)
+            cx = max(self.table.left + r, min(self.table.right - r, mouse_pos[0]))
+            cy = max(self.table.top + r, min(self.table.bottom - r, mouse_pos[1]))
+            cue.x, cue.y = cx, cy
+        renderer.draw_balls(screen, self.balls, font, mode=self.mode)
         if self.state == STATE_AIMING:
             group = self.player_groups[self.current]
             on_eight = self._shooter_on_eight()
             if self.mode == 'nine':
                 forbidden = lambda n: not is_legal_nine_ball_contact(n, self.balls)
+            elif self.mode == 'snooker':
+                if self.free_ball:
+                    forbidden = lambda n: n == 0
+                else:
+                    forbidden = lambda n: not _snooker_legal_contact(
+                        n, self._snooker_phase, self._snooker_next_color)
             else:
                 forbidden = lambda n: not is_legal_first_contact(
                     n, self.open_table, group, on_eight)
@@ -363,7 +534,9 @@ class Game:
                 renderer.draw_spin_panel(screen, font, self.english)
         if self.state == STATE_BALL_IN_HAND:
             renderer.draw_ball_in_hand_hint(screen, font)
-        renderer.draw_hud(screen, font, self.player_groups, self.current, self.message, mode=self.mode)
+        renderer.draw_hud(screen, font, self.player_groups, self.current, self.message,
+                          mode=self.mode,
+                          snooker_scores=self._snooker_scores if self.mode == 'snooker' else None)
         renderer.draw_score(screen, font, self.scores)
         if self.state == STATE_GAMEOVER:
             renderer.draw_gameover(screen, font, self.winner)
@@ -438,8 +611,10 @@ def main():
                         hint_text = ""
                         hint_until = 0
                     elif clicked == 'snooker':
-                        hint_text = "斯诺克 敬请期待"
-                        hint_until = pygame.time.get_ticks() + int(config.MENU_HINT_SECONDS * 1000)
+                        game = Game(mode='snooker', sound=sound)
+                        scene = 'game'
+                        hint_text = ""
+                        hint_until = 0
             else:  # scene == 'game'
                 if ev.type == pygame.KEYDOWN and ev.key == pygame.K_ESCAPE:
                     paused = not paused
