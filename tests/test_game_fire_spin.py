@@ -5,6 +5,8 @@ import pygame
 import pytest
 
 from balls import find_cue
+from balls import find_cue as _find_cue
+from physics import Event, EVENT_POCKETED, EVENT_BALL_HIT
 
 
 @pytest.fixture(scope="module")
@@ -63,3 +65,36 @@ def test_fire_resets_spin_ui_state(game_module):
     assert g.english == (0.0, 0.0)
     assert g.spin_panel_open is False
     assert g.dragging_spin is False
+
+
+def _snooker_game(game_module):
+    g = game_module.Game(mode='snooker')
+    g.state = game_module.STATE_AIMING
+    g.current = 0
+    return g
+
+
+def test_snooker_foul_cue_stays_when_not_potted(game_module):
+    # 犯规但母球未落袋:对手原位接着打,不进摆球状态
+    g = _snooker_game(game_module)
+    cue = _find_cue(g.balls)
+    cue.x, cue.y = 333.0, 222.0
+    # 红球阶段先碰黑球(21) → 犯规,母球未落袋
+    g.shot_events = [Event(EVENT_BALL_HIT, {'a': 0, 'b': 21})]
+    g._was_ball_in_hand = False
+    g.resolve_shot()
+    assert g.current == 1                      # 换对手
+    assert g.state == game_module.STATE_AIMING # 原位打,不摆球
+    assert g.place_mode is None                # 无摆球特权
+    assert (cue.x, cue.y) == (333.0, 222.0)    # 母球没动
+
+
+def test_snooker_foul_cue_potted_goes_to_d(game_module):
+    # 犯规且母球落袋:对手在 D 区摆球
+    g = _snooker_game(game_module)
+    g.shot_events = [Event(EVENT_POCKETED, {'number': 0, 'pocket': 0})]
+    g._was_ball_in_hand = False
+    g.resolve_shot()
+    assert g.current == 1
+    assert g.state == game_module.STATE_BREAK_PLACE
+    assert g.place_mode == 'kitchen'

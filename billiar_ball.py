@@ -211,13 +211,23 @@ class Game:
         if result.foul:
             self.message = f"玩家{self.current + 1} 犯规：{result.foul_reason}"
             self.current = 1 - self.current
-            if self.mode == 'snooker':
-                self.place_mode = 'kitchen'  # 斯诺克犯规后在 D 区摆球
-                self.state = STATE_BREAK_PLACE
-                self.message = "犯规后在D区移动鼠标摆放白球，点击确定"
+            if result.cue_pocketed:
+                # 母球落袋:对手在 D 区(斯诺克)/开球区(8球)摆放
+                if self.mode == 'snooker':
+                    self.place_mode = 'kitchen'
+                    self.state = STATE_BREAK_PLACE
+                    self.message = "犯规后在D区移动鼠标摆放白球，点击确定"
+                else:
+                    self.place_mode = 'free'
+                    self.state = STATE_BALL_IN_HAND
             else:
-                self.place_mode = 'free'
-                self.state = STATE_BALL_IN_HAND
+                # 母球未落袋:斯诺克原位接着打;8球给自由球
+                if self.mode == 'snooker':
+                    self.place_mode = None
+                    self.state = STATE_AIMING
+                else:
+                    self.place_mode = 'free'
+                    self.state = STATE_BALL_IN_HAND
         elif result.continue_turn and not was_break:
             if self.mode == 'snooker':
                 if self._snooker_phase == 'red':
