@@ -233,6 +233,10 @@ def draw_hud(screen, font, player_groups, current_player, message, mode='eight',
     if message:
         screen.blit(font.render(message, True, config.COLOR_TEXT), (40, 52))
 
+    if mode == 'snooker':
+        hint = font.render("G=僵局重摆", True, config.COLOR_TEXT)
+        screen.blit(hint, (40, 78))
+
 
 def draw_score(screen, font, scores):
     """顶部正中累计胜场比分。scores=[玩家1胜场, 玩家2胜场]，跨局保留。"""
