@@ -354,10 +354,11 @@ def _path_clear_to_edge(cue, target, all_balls, edge_sign):
     if dist == 0:
         return True
     ux, uy = dx / dist, dy / dist
-    # 法向(垂直于瞄准线),指向某侧偏移一个球半径,使射线擦过 target 边缘
+    # 法向(垂直于瞄准线),指向某侧偏移 2R(两球半径之和,母球擦过目标边缘),
+    # 使母球中心路径擦过 target 最薄边
     nx, ny = -uy, ux
-    aim_x = target.x + edge_sign * r * nx
-    aim_y = target.y + edge_sign * r * ny
+    aim_x = target.x + edge_sign * 2 * r * nx
+    aim_y = target.y + edge_sign * 2 * r * ny
     for b in all_balls:
         if b.number in (0, target.number) or not b.on_table:
             continue

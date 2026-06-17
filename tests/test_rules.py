@@ -302,3 +302,17 @@ def test_not_snookered_if_any_ball_on_reachable():
     clear = _ball(2, 100, 450)   # 母球正下方,通路清晰
     balls = [cue, blocked, blocker, clear]
     assert is_snookered(cue, {1, 2}, balls) is False
+
+
+def test_snookered_narrow_gap_too_tight_for_cue():
+    # 目标球两侧各有一颗阻挡球,垂直间距 ~3.4R(落在 3R~4R 带内):
+    # 真实母球(半径R)无法从任一侧的缝隙穿过 → 应判被障碍。
+    # 此用例区分切线偏移 R(错误,会判没障碍) 与 2R(正确,判被障碍)。
+    r = config.BALL_RADIUS
+    d = int(3.4 * r)                       # 37 (在 3R=33 与 4R=44 之间)
+    cue = _ball(0, 100, 250)
+    target = _ball(1, 500, 250)
+    block_a = _ball(20, 500, 250 + d)
+    block_b = _ball(19, 500, 250 - d)
+    balls = [cue, target, block_a, block_b]
+    assert is_snookered(cue, {1}, balls) is True
