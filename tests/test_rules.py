@@ -1,8 +1,9 @@
 from physics import Event, EVENT_POCKETED, EVENT_BALL_HIT, EVENT_CUSHION
 from rules import evaluate_shot, is_legal_first_contact, snooker_balls_on
-from rules import evaluate_snooker_shot
+from rules import evaluate_snooker_shot, is_snookered
 from table import Table
 from balls import Ball
+import config
 
 
 def hit(a, b):
@@ -269,3 +270,35 @@ def test_last_red_free_color_then_ascending_sequence():
     assert respot == [19]
     assert phase == 'color'
     assert nc == 16
+
+
+def _ball(n, x, y):
+    return Ball(number=n, x=x, y=y)
+
+
+def test_not_snookered_clear_path():
+    # 母球在左,目标红球在右,中间无阻挡 → 没被障碍
+    cue = _ball(0, 100, 250)
+    target = _ball(1, 500, 250)
+    balls = [cue, target]
+    assert is_snookered(cue, {1}, balls) is False
+
+
+def test_snookered_blocker_directly_between():
+    # 母球与目标球同一水平线,正中间放一颗彩球完全挡住两侧切线 → 被障碍
+    cue = _ball(0, 100, 250)
+    target = _ball(1, 500, 250)
+    r = config.BALL_RADIUS
+    blocker = _ball(20, 300, 250)
+    balls = [cue, target, blocker]
+    assert is_snookered(cue, {1}, balls) is True
+
+
+def test_not_snookered_if_any_ball_on_reachable():
+    # 两颗 ball-on:一颗被挡、一颗通路清晰 → 不算被障碍
+    cue = _ball(0, 100, 250)
+    blocked = _ball(1, 500, 250)
+    blocker = _ball(20, 300, 250)
+    clear = _ball(2, 100, 450)   # 母球正下方,通路清晰
+    balls = [cue, blocked, blocker, clear]
+    assert is_snookered(cue, {1, 2}, balls) is False

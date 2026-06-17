@@ -1,7 +1,9 @@
 """8 球/9 球/斯诺克规则判定：消费 physics 事件，输出本杆结果。无 pygame 依赖。"""
+import math
 from dataclasses import dataclass
 
-from balls import group_of
+import config
+from balls import group_of, snooker_value
 from physics import EVENT_POCKETED, EVENT_BALL_HIT, EVENT_CUSHION
 
 
@@ -325,3 +327,57 @@ def evaluate_snooker_shot(events, balls, phase, next_color, table):
         assigned_group=None,
         winner_is_shooter=None,
     ), points_scored, foul_points, respot_colors, new_phase, new_next_color
+
+
+def _segment_hits_circle(x0, y0, x1, y1, cx, cy, radius):
+    """线段 (x0,y0)->(x1,y1) 是否与圆心 (cx,cy) 半径 radius 的圆相交。"""
+    dx, dy = x1 - x0, y1 - y0
+    seg_len_sq = dx * dx + dy * dy
+    if seg_len_sq == 0:
+        return (x0 - cx) ** 2 + (y0 - cy) ** 2 <= radius ** 2
+    # 投影参数 t,夹到 [0,1]
+    t = ((cx - x0) * dx + (cy - y0) * dy) / seg_len_sq
+    t = max(0.0, min(1.0, t))
+    px, py = x0 + t * dx, y0 + t * dy
+    return (px - cx) ** 2 + (py - cy) ** 2 <= radius ** 2
+
+
+def _path_clear_to_edge(cue, target, all_balls, edge_sign):
+    """母球能否沿擦过 target 某侧最薄边的直线打到该 target。
+
+    edge_sign: +1=右侧切线, -1=左侧切线。
+    用半径 2*R 的扫掠圆检测路径上是否有其他球阻挡。
+    """
+    r = config.BALL_RADIUS
+    dx, dy = target.x - cue.x, target.y - cue.y
+    dist = math.hypot(dx, dy)
+    if dist == 0:
+        return True
+    ux, uy = dx / dist, dy / dist
+    # 法向(垂直于瞄准线),指向某侧偏移一个球半径,使射线擦过 target 边缘
+    nx, ny = -uy, ux
+    aim_x = target.x + edge_sign * r * nx
+    aim_y = target.y + edge_sign * r * ny
+    for b in all_balls:
+        if b.number in (0, target.number) or not b.on_table:
+            continue
+        # 阻挡判定:其他球到 (cue->aim点) 线段距离 < 2R(母球扫掠)
+        if _segment_hits_circle(cue.x, cue.y, aim_x, aim_y,
+                                b.x, b.y, 2 * r):
+            return False
+    return True
+
+
+def is_snookered(cue, balls_on, all_balls):
+    """母球是否被障碍:对每颗 ball-on,两侧最薄边至少一侧可直线打到则不算障碍。
+
+    所有 ball-on 的两侧都被挡 → 返回 True。
+    """
+    for tgt in all_balls:
+        if tgt.number not in balls_on or not tgt.on_table:
+            continue
+        right_clear = _path_clear_to_edge(cue, tgt, all_balls, +1)
+        left_clear = _path_clear_to_edge(cue, tgt, all_balls, -1)
+        if right_clear or left_clear:
+            return False
+    return True
