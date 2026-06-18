@@ -156,3 +156,9 @@ def test_stalemate_g_key_resets_frame(game_module):
     assert g._snooker_scores == [0, 0]     # 本局分清零
     assert g.scores == [2, 1]              # 跨局胜场保留
     assert all(b.on_table for b in g.balls)  # 重新摆球
+
+
+def test_reset_initializes_replay_fields(game_module):
+    g = game_module.Game(mode='snooker')
+    assert g._can_replay is False
+    assert g._snooker_pre_shot is None

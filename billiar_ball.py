@@ -85,6 +85,9 @@ class Game:
         self.place_mode = 'kitchen'  # 摆球特权：'kitchen'开球/'free'自由球/None正常回合
         self.free_ball = False       # 自由球:本杆可把任意球当 ball-on
         self._was_free_ball = False
+        # F 键复位（斯诺克）：对手解球失败后做斯诺克方可让其重打
+        self._snooker_pre_shot = None   # 出杆前整桌快照
+        self._can_replay = False        # 当前是否可按 F 复位
         # 杆法（右上角红点控件）
         self.english = (0.0, 0.0)    # 红点归一化偏移 (dx,dy)，模长≤1；上=跟杆 右=右塞
         self.spin_panel_open = False # 放大面板是否打开
