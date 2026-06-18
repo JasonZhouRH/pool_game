@@ -289,3 +289,12 @@ def test_f_key_ignored_when_cannot_replay(game_module):
     ev = pygame.event.Event(pygame.KEYDOWN, key=pygame.K_f)
     g.handle_event(ev, (0, 0))
     assert g.current == 0             # 没有任何变化
+
+
+def test_draw_hud_accepts_can_replay(game_module):
+    import renderer
+    screen = pygame.display.get_surface()
+    font = pygame.font.SysFont('arial', 18)
+    # 不抛异常即可(关键字参数存在)
+    renderer.draw_hud(screen, font, [None, None], 0, "msg",
+                      mode='snooker', snooker_scores=[0, 0], can_replay=True)

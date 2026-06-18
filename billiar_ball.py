@@ -577,7 +577,8 @@ class Game:
             renderer.draw_ball_in_hand_hint(screen, font)
         renderer.draw_hud(screen, font, self.player_groups, self.current, self.message,
                           mode=self.mode,
-                          snooker_scores=self._snooker_scores if self.mode == 'snooker' else None)
+                          snooker_scores=self._snooker_scores if self.mode == 'snooker' else None,
+                          can_replay=self._can_replay)
         renderer.draw_score(screen, font, self.scores)
         if self.state == STATE_GAMEOVER:
             renderer.draw_gameover(screen, font, self.winner)
