@@ -214,7 +214,7 @@ def draw_snooker_d(screen, table):
 
 
 def draw_hud(screen, font, player_groups, current_player, message, mode='eight',
-             snooker_scores=None):
+             snooker_scores=None, can_replay=False):
     marker = ['  ', '  ']
     marker[current_player] = '▶ '
 
@@ -234,7 +234,10 @@ def draw_hud(screen, font, player_groups, current_player, message, mode='eight',
         screen.blit(font.render(message, True, config.COLOR_TEXT), (40, 52))
 
     if mode == 'snooker':
-        hint = font.render("G=僵局重摆", True, config.COLOR_TEXT)
+        hint_text = "G=僵局重摆"
+        if can_replay:
+            hint_text += "   F=让对手重打"
+        hint = font.render(hint_text, True, config.COLOR_TEXT)
         screen.blit(hint, (40, 78))
 
 

@@ -360,3 +360,15 @@ def test_ascending_wrong_pot_penalty_is_highest_value():
     assert foul_pts == 6
     assert respot == [20]
     assert nc == 17
+
+
+def test_first_cue_contact_returns_number_when_cue_hits_ball():
+    from rules import first_cue_contact
+    from physics import Event, EVENT_BALL_HIT
+    events = [Event(EVENT_BALL_HIT, {'a': 0, 'b': 7})]
+    assert first_cue_contact(events) == 7
+
+
+def test_first_cue_contact_returns_none_when_no_contact():
+    from rules import first_cue_contact
+    assert first_cue_contact([]) is None

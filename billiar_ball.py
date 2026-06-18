@@ -13,7 +13,8 @@ from balls import (create_nine_ball_balls, create_snooker_balls,
 from cue import (aim_direction, apply_fine_tune, clamp_english,
                  power_from_drag, velocity_from_aim)
 from rules import (evaluate_nine_ball_shot, evaluate_shot,
-                   evaluate_snooker_shot, is_legal_first_contact,
+                   evaluate_snooker_shot, first_cue_contact,
+                   is_legal_first_contact,
                    is_legal_nine_ball_contact, is_snookered,
                    snooker_balls_on)
 from table import Table
@@ -85,6 +86,9 @@ class Game:
         self.place_mode = 'kitchen'  # 摆球特权：'kitchen'开球/'free'自由球/None正常回合
         self.free_ball = False       # 自由球:本杆可把任意球当 ball-on
         self._was_free_ball = False
+        # F 键复位（斯诺克）：对手解球失败后做斯诺克方可让其重打
+        self._snooker_pre_shot = None   # 出杆前整桌快照
+        self._can_replay = False        # 当前是否可按 F 复位
         # 杆法（右上角红点控件）
         self.english = (0.0, 0.0)    # 红点归一化偏移 (dx,dy)，模长≤1；上=跟杆 右=右塞
         self.spin_panel_open = False # 放大面板是否打开
@@ -104,6 +108,8 @@ class Game:
             result = evaluate_nine_ball_shot(self.shot_events, self._lowest_on_table,
                                              is_ball_in_hand=self._was_ball_in_hand)
         elif self.mode == 'snooker':
+            phase_before = self._snooker_phase
+            next_color_before = self._snooker_next_color
             result, pts, foul_pts, respot, new_phase, next_color = evaluate_snooker_shot(
                 self.shot_events, self.balls, self._snooker_phase,
                 self._snooker_next_color, self.table, free_ball=self._was_free_ball)
@@ -233,6 +239,13 @@ class Game:
                     if is_snookered(cue, balls_on, self.balls):
                         self.free_ball = True
                         self.message = "自由球：可击打任意球作为目标球"
+                    # 对手没碰到 ball-on(用击球前阶段判定)且未拿自由球 → 可让其重打。
+                    # 母球能碰到的球必然击球前在台,故按阶段判定首碰是否为目标球即可,
+                    # 不依赖落袋后的在台状态(避免对手误把目标球连同彩球打进时误判可复位)。
+                    fc = first_cue_contact(self.shot_events)
+                    missed_ball_on = fc is None or not _snooker_legal_contact(
+                        fc, phase_before, next_color_before)
+                    self._can_replay = missed_ball_on and not self.free_ball
                 else:
                     self.place_mode = 'free'
                     self.state = STATE_BALL_IN_HAND
@@ -266,6 +279,32 @@ class Game:
             else:
                 self.message = f"轮到玩家{self.current + 1}" if not result.pocketed else "未进本组球，交换"
             self.state = STATE_AIMING
+
+    def _replay_after_miss(self):
+        """斯诺克:把球复位到对手击球前,交还回合让其重打。罚分保留。"""
+        snap = self._snooker_pre_shot
+        by_number = {num: (x, y, on) for num, x, y, vx, vy, on in snap['balls']}
+        for b in self.balls:
+            if b.number in by_number:
+                x, y, on = by_number[b.number]
+                b.x, b.y, b.vx, b.vy, b.on_table = x, y, 0.0, 0.0, on
+        self._snooker_phase = snap['phase']
+        self._snooker_next_color = snap['next_color']
+        self.current = snap['current']
+        self._can_replay = False
+        self.free_ball = False
+        self.place_mode = None
+        # 清除蓄力/瞄准瞬态,避免按 F 时正握杆蓄力导致随后误出杆
+        self.charging = False
+        self.power = 0.0
+        self.aiming = False
+        self.dragging_slider = False
+        self.dragging_spin = False
+        self.fine_offset = 0.0
+        self.english = (0.0, 0.0)
+        self.spin_panel_open = False
+        self.state = STATE_AIMING
+        self.message = "复位：对手重新解斯诺克"
 
     # ---- 自由球放置合法性 ----
     def _placement_valid(self, x, y):
@@ -354,6 +393,15 @@ class Game:
         cue.spin_v = -dy             # 红点偏上(dy<0)=跟杆(+)
         cue.spin_s = dx              # 红点偏右(dx>0)=右塞(+)
         self.shot_events = []
+        # 斯诺克：出杆前拍整桌快照，供对手解球失败后 F 复位；自己出杆清除上一轮资格
+        if self.mode == 'snooker':
+            self._snooker_pre_shot = {
+                'balls': [(b.number, b.x, b.y, b.vx, b.vy, b.on_table) for b in self.balls],
+                'phase': self._snooker_phase,
+                'next_color': self._snooker_next_color,
+                'current': self.current,
+            }
+        self._can_replay = False
         # 在物理推进（移除落袋球）之前，快照本杆是否处于"打8号"阶段
         self.shot_on_eight = self._shooter_on_eight()
         # 9球：快照击球前台面最小号球（物理推进后会移除落袋球，不能事后判断）
@@ -406,6 +454,13 @@ class Game:
                 and ev.type == pygame.KEYDOWN and ev.key == pygame.K_g):
             self.reset()
             self.message = "僵局：重新摆球，按原顺序重赛"
+            return
+
+        # F 复位:做斯诺克方让解球失败的对手在原局面重打
+        if (self.state == STATE_AIMING and self.mode == 'snooker'
+                and self._can_replay and self._snooker_pre_shot is not None
+                and ev.type == pygame.KEYDOWN and ev.key == pygame.K_f):
+            self._replay_after_miss()
             return
 
         if self.state != STATE_AIMING:
@@ -531,7 +586,8 @@ class Game:
             renderer.draw_ball_in_hand_hint(screen, font)
         renderer.draw_hud(screen, font, self.player_groups, self.current, self.message,
                           mode=self.mode,
-                          snooker_scores=self._snooker_scores if self.mode == 'snooker' else None)
+                          snooker_scores=self._snooker_scores if self.mode == 'snooker' else None,
+                          can_replay=self._can_replay)
         renderer.draw_score(screen, font, self.scores)
         if self.state == STATE_GAMEOVER:
             renderer.draw_gameover(screen, font, self.winner)

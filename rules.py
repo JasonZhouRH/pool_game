@@ -27,6 +27,12 @@ def _first_cue_contact(events):
     return None, -1
 
 
+def first_cue_contact(events):
+    """母球首个碰到的球号(无接触返回 None)。供 Game 层判断解球是否成功。"""
+    number, _idx = _first_cue_contact(events)
+    return number
+
+
 def is_legal_first_contact(number, open_table, shooter_group, shooter_on_eight):
     """该球作为母球首个碰到的球是否合法。与 evaluate_shot 的犯规判定一致。
 
