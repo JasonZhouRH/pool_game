@@ -13,7 +13,8 @@ from balls import (create_nine_ball_balls, create_snooker_balls,
 from cue import (aim_direction, apply_fine_tune, clamp_english,
                  power_from_drag, velocity_from_aim)
 from rules import (evaluate_nine_ball_shot, evaluate_shot,
-                   evaluate_snooker_shot, is_legal_first_contact,
+                   evaluate_snooker_shot, first_cue_contact,
+                   is_legal_first_contact,
                    is_legal_nine_ball_contact, is_snookered,
                    snooker_balls_on)
 from table import Table
@@ -107,6 +108,8 @@ class Game:
             result = evaluate_nine_ball_shot(self.shot_events, self._lowest_on_table,
                                              is_ball_in_hand=self._was_ball_in_hand)
         elif self.mode == 'snooker':
+            phase_before = self._snooker_phase
+            next_color_before = self._snooker_next_color
             result, pts, foul_pts, respot, new_phase, next_color = evaluate_snooker_shot(
                 self.shot_events, self.balls, self._snooker_phase,
                 self._snooker_next_color, self.table, free_ball=self._was_free_ball)
@@ -236,6 +239,13 @@ class Game:
                     if is_snookered(cue, balls_on, self.balls):
                         self.free_ball = True
                         self.message = "自由球：可击打任意球作为目标球"
+                    # 对手没碰到 ball-on(用击球前阶段判定)且未拿自由球 → 可让其重打
+                    fc = first_cue_contact(self.shot_events)
+                    balls_on_before = snooker_balls_on(
+                        phase_before, next_color_before, self.balls)
+                    self._can_replay = (
+                        (fc is None or fc not in balls_on_before)
+                        and not self.free_ball)
                 else:
                     self.place_mode = 'free'
                     self.state = STATE_BALL_IN_HAND

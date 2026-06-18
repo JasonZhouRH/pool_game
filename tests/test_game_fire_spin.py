@@ -184,3 +184,72 @@ def test_fire_no_snapshot_in_eight_ball(game_module):
     g.power = 0.5
     g._fire()
     assert g._snooker_pre_shot is None
+
+
+def test_can_replay_when_opponent_misses_ball_on(game_module):
+    # 红球阶段先碰黑球(21)=没碰红球(ball-on),母球未落袋且未被斯诺克 → 做斯诺克方可复位
+    g = _snooker_game(game_module)
+    g._snooker_phase = 'red'
+    g._snooker_next_color = None
+    # 只留母球与一颗红球且直线无遮挡,确保未触发自由球
+    for b in g.balls:
+        b.on_table = b.number in (0, 1)
+    cue = _find_cue(g.balls)
+    cue.x, cue.y = 100.0, 250.0
+    red = next(b for b in g.balls if b.number == 1)
+    red.x, red.y = 500.0, 250.0
+    g.shot_events = [Event(EVENT_BALL_HIT, {'a': 0, 'b': 21})]
+    g._was_ball_in_hand = False
+    g._was_free_ball = False
+    g.resolve_shot()
+    assert g.free_ball is False
+    assert g._can_replay is True
+
+
+def test_cannot_replay_when_opponent_hits_ball_on(game_module):
+    # 红球阶段先碰红球(7=ball-on)但空杆犯规 → 解到了,不可复位
+    g = _snooker_game(game_module)
+    g._snooker_phase = 'red'
+    g._snooker_next_color = None
+    # 只留母球与该红球且直线无遮挡,排除自由球干扰,确保因碰到 ball-on 而不可复位
+    for b in g.balls:
+        b.on_table = b.number in (0, 7)
+    cue = _find_cue(g.balls)
+    cue.x, cue.y = 100.0, 250.0
+    red = next(b for b in g.balls if b.number == 7)
+    red.x, red.y = 500.0, 250.0
+    g.shot_events = [Event(EVENT_BALL_HIT, {'a': 0, 'b': 7})]
+    g._was_ball_in_hand = False
+    g._was_free_ball = False
+    g.resolve_shot()
+    assert g.free_ball is False
+    assert g._can_replay is False
+
+
+def test_cannot_replay_when_cue_potted(game_module):
+    # 犯规且母球落袋 → 走 D 区,不可复位
+    g = _snooker_game(game_module)
+    g.shot_events = [Event(EVENT_POCKETED, {'number': 0, 'pocket': 0})]
+    g._was_ball_in_hand = False
+    g._was_free_ball = False
+    g.resolve_shot()
+    assert g._can_replay is False
+
+
+def test_cannot_replay_when_free_ball_awarded(game_module):
+    # 对手犯规且你被斯诺克拿到自由球 → 不可复位
+    g = _snooker_game(game_module)
+    for b in g.balls:
+        b.on_table = b.number in (0, 1, 20)
+    cue = _find_cue(g.balls)
+    cue.x, cue.y = 100.0, 250.0
+    red = next(b for b in g.balls if b.number == 1)
+    red.x, red.y = 500.0, 250.0
+    pink = next(b for b in g.balls if b.number == 20)
+    pink.x, pink.y = 300.0, 250.0   # 挡住唯一红球
+    g.shot_events = [Event(EVENT_BALL_HIT, {'a': 0, 'b': 20})]
+    g._was_ball_in_hand = False
+    g._was_free_ball = False
+    g.resolve_shot()
+    assert g.free_ball is True
+    assert g._can_replay is False
