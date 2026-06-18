@@ -357,6 +357,15 @@ class Game:
         cue.spin_v = -dy             # 红点偏上(dy<0)=跟杆(+)
         cue.spin_s = dx              # 红点偏右(dx>0)=右塞(+)
         self.shot_events = []
+        # 斯诺克：出杆前拍整桌快照，供对手解球失败后 F 复位；自己出杆清除上一轮资格
+        if self.mode == 'snooker':
+            self._snooker_pre_shot = {
+                'balls': [(b.number, b.x, b.y, b.vx, b.vy, b.on_table) for b in self.balls],
+                'phase': self._snooker_phase,
+                'next_color': self._snooker_next_color,
+                'current': self.current,
+            }
+        self._can_replay = False
         # 在物理推进（移除落袋球）之前，快照本杆是否处于"打8号"阶段
         self.shot_on_eight = self._shooter_on_eight()
         # 9球：快照击球前台面最小号球（物理推进后会移除落袋球，不能事后判断）

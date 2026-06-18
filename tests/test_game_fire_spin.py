@@ -162,3 +162,25 @@ def test_reset_initializes_replay_fields(game_module):
     g = game_module.Game(mode='snooker')
     assert g._can_replay is False
     assert g._snooker_pre_shot is None
+
+
+def test_fire_snapshots_balls_and_clears_replay(game_module):
+    g = _snooker_game(game_module)
+    g._can_replay = True            # 上一轮残留资格,出杆应清除
+    g.aim_dir = (1.0, 0.0)
+    g.power = 0.5
+    g._fire()
+    assert g._can_replay is False
+    assert g._snooker_pre_shot is not None
+    assert g._snooker_pre_shot['current'] == g.current
+    assert g._snooker_pre_shot['phase'] == g._snooker_phase
+    assert len(g._snooker_pre_shot['balls']) == len(g.balls)
+
+
+def test_fire_no_snapshot_in_eight_ball(game_module):
+    g = game_module.Game()          # 8 球模式
+    g.state = game_module.STATE_AIMING
+    g.aim_dir = (1.0, 0.0)
+    g.power = 0.5
+    g._fire()
+    assert g._snooker_pre_shot is None
