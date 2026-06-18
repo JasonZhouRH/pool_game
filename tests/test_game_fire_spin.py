@@ -298,3 +298,50 @@ def test_draw_hud_accepts_can_replay(game_module):
     # 不抛异常即可(关键字参数存在)
     renderer.draw_hud(screen, font, [None, None], 0, "msg",
                       mode='snooker', snooker_scores=[0, 0], can_replay=True)
+
+
+def test_cannot_replay_when_contacted_ball_on_was_potted(game_module):
+    # 红球阶段先碰红球(合法 ball-on),但该红球与彩球同杆进袋(进彩=犯规)。
+    # 即便被碰的红球进了袋,仍属"解到了 ball-on",不可复位。
+    g = _snooker_game(game_module)
+    g._snooker_phase = 'red'
+    g._snooker_next_color = None
+    for b in g.balls:
+        b.on_table = b.number in (0, 7, 8, 20)
+    cue = _find_cue(g.balls)
+    cue.x, cue.y = 100.0, 250.0
+    r7 = next(b for b in g.balls if b.number == 7)
+    r7.x, r7.y = 500.0, 250.0
+    r8 = next(b for b in g.balls if b.number == 8)
+    r8.x, r8.y = 500.0, 100.0
+    pink = next(b for b in g.balls if b.number == 20)
+    pink.x, pink.y = 700.0, 250.0
+    g.shot_events = [
+        Event(EVENT_BALL_HIT, {'a': 0, 'b': 7}),
+        Event(EVENT_POCKETED, {'number': 7, 'pocket': 0}),
+        Event(EVENT_POCKETED, {'number': 20, 'pocket': 1}),
+    ]
+    r7.on_table = False     # 模拟物理:进袋球移出台面
+    pink.on_table = False
+    g._was_ball_in_hand = False
+    g._was_free_ball = False
+    g.resolve_shot()
+    assert g.free_ball is False    # 未触发自由球(隔离原因)
+    assert g._can_replay is False  # 解到了 ball-on,不可复位
+
+
+def test_f_key_replay_clears_charge_state(game_module):
+    g = _snooker_game(game_module)
+    g.current = 0
+    snapshot_balls = [(b.number, b.x, b.y, 0.0, 0.0, b.on_table) for b in g.balls]
+    g._snooker_pre_shot = {'balls': snapshot_balls, 'phase': 'red',
+                           'next_color': None, 'current': 1}
+    g._can_replay = True
+    g.charging = True
+    g.power = 0.8
+    g.aiming = True
+    ev = pygame.event.Event(pygame.KEYDOWN, key=pygame.K_f)
+    g.handle_event(ev, (0, 0))
+    assert g.charging is False
+    assert g.power == 0.0
+    assert g.aiming is False

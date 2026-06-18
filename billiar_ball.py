@@ -239,13 +239,13 @@ class Game:
                     if is_snookered(cue, balls_on, self.balls):
                         self.free_ball = True
                         self.message = "自由球：可击打任意球作为目标球"
-                    # 对手没碰到 ball-on(用击球前阶段判定)且未拿自由球 → 可让其重打
+                    # 对手没碰到 ball-on(用击球前阶段判定)且未拿自由球 → 可让其重打。
+                    # 母球能碰到的球必然击球前在台,故按阶段判定首碰是否为目标球即可,
+                    # 不依赖落袋后的在台状态(避免对手误把目标球连同彩球打进时误判可复位)。
                     fc = first_cue_contact(self.shot_events)
-                    balls_on_before = snooker_balls_on(
-                        phase_before, next_color_before, self.balls)
-                    self._can_replay = (
-                        (fc is None or fc not in balls_on_before)
-                        and not self.free_ball)
+                    missed_ball_on = fc is None or not _snooker_legal_contact(
+                        fc, phase_before, next_color_before)
+                    self._can_replay = missed_ball_on and not self.free_ball
                 else:
                     self.place_mode = 'free'
                     self.state = STATE_BALL_IN_HAND
@@ -294,6 +294,15 @@ class Game:
         self._can_replay = False
         self.free_ball = False
         self.place_mode = None
+        # 清除蓄力/瞄准瞬态,避免按 F 时正握杆蓄力导致随后误出杆
+        self.charging = False
+        self.power = 0.0
+        self.aiming = False
+        self.dragging_slider = False
+        self.dragging_spin = False
+        self.fine_offset = 0.0
+        self.english = (0.0, 0.0)
+        self.spin_panel_open = False
         self.state = STATE_AIMING
         self.message = "复位：对手重新解斯诺克"
 
