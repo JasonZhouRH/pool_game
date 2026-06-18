@@ -280,6 +280,23 @@ class Game:
                 self.message = f"轮到玩家{self.current + 1}" if not result.pocketed else "未进本组球，交换"
             self.state = STATE_AIMING
 
+    def _replay_after_miss(self):
+        """斯诺克:把球复位到对手击球前,交还回合让其重打。罚分保留。"""
+        snap = self._snooker_pre_shot
+        by_number = {num: (x, y, on) for num, x, y, vx, vy, on in snap['balls']}
+        for b in self.balls:
+            if b.number in by_number:
+                x, y, on = by_number[b.number]
+                b.x, b.y, b.vx, b.vy, b.on_table = x, y, 0.0, 0.0, on
+        self._snooker_phase = snap['phase']
+        self._snooker_next_color = snap['next_color']
+        self.current = snap['current']
+        self._can_replay = False
+        self.free_ball = False
+        self.place_mode = None
+        self.state = STATE_AIMING
+        self.message = "复位：对手重新解斯诺克"
+
     # ---- 自由球放置合法性 ----
     def _placement_valid(self, x, y):
         r = config.BALL_RADIUS
@@ -428,6 +445,13 @@ class Game:
                 and ev.type == pygame.KEYDOWN and ev.key == pygame.K_g):
             self.reset()
             self.message = "僵局：重新摆球，按原顺序重赛"
+            return
+
+        # F 复位:做斯诺克方让解球失败的对手在原局面重打
+        if (self.state == STATE_AIMING and self.mode == 'snooker'
+                and self._can_replay and self._snooker_pre_shot is not None
+                and ev.type == pygame.KEYDOWN and ev.key == pygame.K_f):
+            self._replay_after_miss()
             return
 
         if self.state != STATE_AIMING:

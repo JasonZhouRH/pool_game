@@ -253,3 +253,39 @@ def test_cannot_replay_when_free_ball_awarded(game_module):
     g.resolve_shot()
     assert g.free_ball is True
     assert g._can_replay is False
+
+
+def test_f_key_replays_after_miss(game_module):
+    g = _snooker_game(game_module)
+    g.current = 0                     # 做斯诺克方是玩家1
+    g._snooker_scores = [0, 4]        # 对手犯规已罚 4 分给玩家1,复位后应保留
+    red = next(b for b in g.balls if b.number == 1)
+    snapshot_balls = [(b.number, b.x, b.y, 0.0, 0.0, b.on_table) for b in g.balls]
+    g._snooker_pre_shot = {
+        'balls': snapshot_balls,
+        'phase': 'red', 'next_color': None,
+        'current': 1,                 # 对手是玩家2
+    }
+    g._snooker_phase = 'color'        # 推进后的脏值,复位应还原成 'red'
+    g._snooker_next_color = 19
+    g._can_replay = True
+    red.x, red.y = 12.0, 34.0         # 把红球挪走,验证复位会还原
+    ev = pygame.event.Event(pygame.KEYDOWN, key=pygame.K_f)
+    g.handle_event(ev, (0, 0))
+    red_after = next(b for b in g.balls if b.number == 1)
+    assert (red_after.x, red_after.y) != (12.0, 34.0)   # 已还原
+    assert g.current == 1                                # 交还给对手
+    assert g._snooker_phase == 'red'                     # 阶段还原
+    assert g._snooker_next_color is None
+    assert g._can_replay is False                        # 资格清除
+    assert g._snooker_scores == [0, 4]                   # 罚分保留
+
+
+def test_f_key_ignored_when_cannot_replay(game_module):
+    g = _snooker_game(game_module)
+    g.current = 0
+    g._can_replay = False
+    g._snooker_pre_shot = None
+    ev = pygame.event.Event(pygame.KEYDOWN, key=pygame.K_f)
+    g.handle_event(ev, (0, 0))
+    assert g.current == 0             # 没有任何变化
