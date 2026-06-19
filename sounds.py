@@ -1,9 +1,37 @@
 """音效模块：加载 sounds/ 目录下的音效与背景音乐。"""
+import math
 import os
+import struct
 
 import pygame
 
+import config
+
 _SOUND_DIR = os.path.join(os.path.dirname(__file__), 'sounds')
+
+# 合成音采样率（与 pygame.mixer 默认一致：44100Hz/16bit signed/stereo）
+_SYNTH_RATE = 44100
+
+
+def synth_tone(freq, ms, volume):
+    """合成一段正弦音的 PCM 字节（16bit signed stereo @44100Hz）。
+
+    freq: 频率(Hz)；ms: 时长(毫秒)；volume: 0~1 振幅比例。
+    首尾各做短促线性淡入淡出，避免爆音(click)。纯数学，无 pygame 依赖。
+    """
+    n = round(_SYNTH_RATE * ms / 1000)
+    peak = int(max(0.0, min(1.0, volume)) * 32767)
+    fade = max(1, n // 20)            # 淡入淡出各占约 5% 时长，至少 1 帧
+    out = bytearray()
+    for i in range(n):
+        env = 1.0
+        if i < fade:
+            env = i / fade            # 淡入
+        elif i >= n - fade:
+            env = (n - 1 - i) / fade  # 淡出
+        s = int(math.sin(2 * math.pi * freq * i / _SYNTH_RATE) * peak * env)
+        out += struct.pack('<hh', s, s)   # 左右声道相同
+    return bytes(out)
 
 # 背景音乐候选文件（按顺序取第一个存在的；ogg 优先，回退 mp3）
 _BGM_CANDIDATES = ['bgm.ogg', 'bgm.mp3']
@@ -27,6 +55,14 @@ def _find_bgm():
     return None
 
 
+def _synth_sound(freq, ms, volume):
+    """合成一段提示音并包成 pygame.Sound；失败(无 mixer 等)则返回 None 优雅降级。"""
+    try:
+        return pygame.mixer.Sound(buffer=synth_tone(freq, ms, volume))
+    except (pygame.error, ValueError):
+        return None
+
+
 class SoundManager:
     """管理并播放台球音效。"""
 
@@ -40,6 +76,13 @@ class SoundManager:
         self._pocket = _load('pocket')
         self._btn_click = _load('btn_click')
         self._win = _load('win', exts=('ogg', 'wav'))   # 获胜音效（ogg 优先）
+        # 射钟提示音：代码合成（无音频文件）。滴答(高短)与超时(低长)音高区分。
+        self._tick = _synth_sound(config.SHOT_CLOCK_TICK_FREQ,
+                                  config.SHOT_CLOCK_TICK_MS,
+                                  config.SHOT_CLOCK_BEEP_VOLUME)
+        self._timeout = _synth_sound(config.SHOT_CLOCK_TIMEOUT_FREQ,
+                                     config.SHOT_CLOCK_TIMEOUT_MS,
+                                     config.SHOT_CLOCK_BEEP_VOLUME)
 
         # 背景音乐：用 pygame.mixer.music（流式、原生循环），与上面的 Sound 音效分开
         self._bgm_loaded = False
@@ -63,6 +106,16 @@ class SoundManager:
     def play_pocket(self):
         if self._pocket and not self.muted:
             self._pocket.play()
+
+    def play_tick(self):
+        """射钟最后 10 秒每秒一声滴答。"""
+        if self._tick and not self.muted:
+            self._tick.play()
+
+    def play_timeout(self):
+        """射钟归零超时犯规提示音。"""
+        if self._timeout and not self.muted:
+            self._timeout.play()
 
     def play_btn_click(self):
         if self._btn_click and not self.muted:

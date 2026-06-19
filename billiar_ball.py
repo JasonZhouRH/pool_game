@@ -546,12 +546,16 @@ class Game:
         return self.state == STATE_AIMING and self.mode in ('eight', 'nine')
 
     def _tick_shot_clock(self):
-        """瞄准阶段每帧递减射钟;归零按超时犯规处罚。"""
+        """瞄准阶段每帧递减射钟;最后10秒每秒一声滴答,归零按超时犯规处罚。"""
         if not self._shot_clock_active():
             return
         self._shot_clock -= 1
         if self._shot_clock <= 0:
             self._timeout_foul()
+        elif (self._shot_clock <= config.SHOT_CLOCK_WARN_SECONDS * config.FPS
+              and self._shot_clock % config.FPS == 0):
+            # 落在剩余 10,9,...,1 秒整的边界帧,每秒恰好一次
+            self.sound.play_tick()
 
     def _timeout_foul(self):
         """超时犯规:换手并给对手自由球(白球不动,仅交控制权),新一杆射钟满血。"""
@@ -566,6 +570,7 @@ class Game:
         self.aiming = False
         self.dragging_slider = False
         self.dragging_spin = False
+        self.sound.play_timeout()
         self.message = f"玩家{loser + 1} 超时犯规，对手自由球"
 
     def update(self):
