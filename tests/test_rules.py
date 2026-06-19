@@ -272,6 +272,21 @@ def test_last_red_free_color_then_ascending_sequence():
     assert nc == 16
 
 
+def test_last_red_free_color_potting_yellow_ascends_from_yellow():
+    # 红球已清完,自选彩球槽把最低彩球黄(16)打进 → 黄球复位,
+    # 升序应从黄(16)重新开始,而不是跳到绿(17)。
+    # (黄球的复位在 Game 层 evaluate 之后执行,故此处黄已离台)
+    balls = _snooker_balls(reds=[], colors=[17, 18, 19, 20, 21])  # 黄已离台
+    events = [hit(0, 16), pocket(16, 0)]
+    result, pts, foul_pts, respot, phase, nc = evaluate_snooker_shot(
+        events, balls, 'color', None, _table())
+    assert result.foul is False
+    assert pts == 2
+    assert respot == [16]
+    assert phase == 'color'
+    assert nc == 16          # 黄球复位后,升序仍从黄开始
+
+
 def _ball(n, x, y):
     return Ball(number=n, x=x, y=y)
 
