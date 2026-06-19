@@ -89,3 +89,22 @@ def test_no_win_sound_during_normal_play(game_module):
     g.state = game_module.STATE_AIMING
     g.update()
     assert g.sound.win_calls == 0
+
+
+def test_gameover_frame_counts_up(game_module):
+    # 进入 GAMEOVER 后:首帧归零,之后每次 update() 递增
+    g = game_module.Game(sound=_SpySound())
+    g.state = game_module.STATE_GAMEOVER
+    g.update()                       # 首帧:播音效 + 帧=0
+    assert g._gameover_frame == 0
+    g.update()
+    assert g._gameover_frame == 1
+    g.update()
+    assert g._gameover_frame == 2
+
+
+def test_reset_zeroes_gameover_frame(game_module):
+    g = game_module.Game(sound=_SpySound())
+    g._gameover_frame = 99
+    g.reset()
+    assert g._gameover_frame == 0

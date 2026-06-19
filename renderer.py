@@ -4,6 +4,7 @@ import random
 import pygame
 
 import config
+import confetti
 import menu
 from balls import group_of, ball_color, snooker_ball_color
 from cue import predict_aim
@@ -268,13 +269,36 @@ def draw_ball_in_hand_hint(screen, font):
     screen.blit(txt, (40, config.WINDOW_HEIGHT - 30))
 
 
-def draw_gameover(screen, font, winner_player):
-    overlay = pygame.Surface((config.WINDOW_WIDTH, config.WINDOW_HEIGHT), pygame.SRCALPHA)
+def draw_gameover(screen, font, title_font, winner_player, frame=0):
+    """获胜界面：半透明黑底 + 碎纸洒落 + 标题弹入缩放 + 重开提示。
+
+    frame: 进入 GAMEOVER 后经过的帧数，驱动碎纸下落与标题弹入动画。
+    """
+    W, H = config.WINDOW_WIDTH, config.WINDOW_HEIGHT
+    overlay = pygame.Surface((W, H), pygame.SRCALPHA)
     overlay.fill((0, 0, 0, 160))
     screen.blit(overlay, (0, 0))
-    msg = f"玩家{winner_player + 1} 获胜！  按 R 重新开始"
-    txt = font.render(msg, True, (255, 255, 255))
-    screen.blit(txt, txt.get_rect(center=(config.WINDOW_WIDTH // 2, config.WINDOW_HEIGHT // 2)))
+
+    # 1. 碎纸：旋转的小方块从顶部洒落（落完返回空，自然消失）
+    size = confetti.CONFETTI_SIZE
+    for p in confetti.particles_at(frame, W, H):
+        block = pygame.Surface((size, size), pygame.SRCALPHA)
+        block.fill(p['color'])
+        block = pygame.transform.rotate(block, p['angle'])
+        screen.blit(block, block.get_rect(center=(int(p['x']), int(p['y']))))
+
+    cx, cy = W // 2, H // 2
+
+    # 2. 标题：64 号大字，按弹入缓动缩放后居中
+    scale = confetti.title_scale(frame)
+    if scale > 0.05:   # scale≈0 时跳过，避免 0 尺寸 surface
+        title_surf = title_font.render(f"玩家{winner_player + 1} 获胜！", True, (255, 230, 120))
+        scaled = pygame.transform.rotozoom(title_surf, 0, scale)
+        screen.blit(scaled, scaled.get_rect(center=(cx, cy - 30)))
+
+    # 3. 提示小字（标题下方）
+    hint = font.render("按 R 重新开始", True, (235, 235, 235))
+    screen.blit(hint, hint.get_rect(center=(cx, cy + 40)))
 
 
 def draw_menu(screen, font, title_font, table):

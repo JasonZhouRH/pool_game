@@ -96,6 +96,7 @@ class Game:
         # 进袋缩小动画:落袋瞬间的快照 [{'number','x','y','frame'}, ...]，与物理/规则解耦
         self.pocketing = []
         self._win_sound_played = False   # 本局获胜音效是否已播（防止 GAMEOVER 每帧重播）
+        self._gameover_frame = 0         # 进入 GAMEOVER 后经过的帧数，驱动获胜界面动画
 
     # ---- 结算 ----
     def _shooter_on_eight(self):
@@ -555,13 +556,17 @@ class Game:
                 self.resolve_shot()
         # 动画每帧推进(独立于球是否在动),保证末球落袋、状态切换后仍能播完
         self._advance_pocketing()
-        # 进入 GAMEOVER 时播一次获胜音效(统一在此判断转换,覆盖各胜负分支,不漏不重)
-        if self.state == STATE_GAMEOVER and not self._win_sound_played:
-            self.sound.play_win()
-            self._win_sound_played = True
+        # 进入 GAMEOVER:首帧播一次获胜音效并归零动画帧计数,之后每帧递增驱动动画
+        if self.state == STATE_GAMEOVER:
+            if not self._win_sound_played:
+                self.sound.play_win()
+                self._win_sound_played = True
+                self._gameover_frame = 0
+            else:
+                self._gameover_frame += 1
 
     # ---- 绘制 ----
-    def draw(self, screen, font, mouse_pos):
+    def draw(self, screen, font, mouse_pos, title_font=None):
         r = config.BALL_RADIUS
         renderer.draw_table(screen)
         renderer.draw_pockets(screen, self.table)
@@ -611,7 +616,8 @@ class Game:
                           can_replay=self._can_replay)
         renderer.draw_score(screen, font, self.scores)
         if self.state == STATE_GAMEOVER:
-            renderer.draw_gameover(screen, font, self.winner)
+            renderer.draw_gameover(screen, font, title_font or font, self.winner,
+                                   frame=self._gameover_frame)
 
 
 PAUSE_BUTTONS = [
@@ -726,7 +732,7 @@ def main():
                 hint_text = ""   # 到期清空
             renderer.draw_mute_indicator(screen, font, sound.muted)
         else:
-            game.draw(screen, font, mouse_pos)
+            game.draw(screen, font, mouse_pos, title_font=title_font)
             renderer.draw_back_hint(screen, font)
             renderer.draw_mute_indicator(screen, font, game.sound.muted)
             if paused:
