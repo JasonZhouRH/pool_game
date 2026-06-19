@@ -10,8 +10,8 @@ import config
 CONFETTI_COUNT = 140          # 粒子数（越多越密集）
 CONFETTI_FALL_FRAMES = 300    # 整波持续帧数（60fps ≈ 5 秒），到点后不再有碎纸
 CONFETTI_RELEASE_FRAMES = 220 # 释放窗口：碎纸在这段时间内错开陆续从顶部落下
-CONFETTI_WIDTH = 5            # 碎纸宽（像素，细）
-CONFETTI_HEIGHT = 14         # 碎纸高（像素，长）→ 细长条彩带
+CONFETTI_WIDTH = 8            # 碎纸宽（像素）
+CONFETTI_HEIGHT = 14         # 碎纸高（像素，长）→ 长条彩带
 CONFETTI_SIZE = CONFETTI_HEIGHT  # 出屏判定用的边距（取较长边）
 
 # 鲜艳配色（复用球色相近的高饱和 RGB）
