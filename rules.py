@@ -300,11 +300,14 @@ def evaluate_snooker_shot(events, balls, phase, next_color, table, free_ball=Fal
             new_phase = 'red'        # 还有红球 → 回到打红球
             new_next_color = None
         else:
-            # 红球已清完 → 进入彩球升序阶段，从最低在台彩球开始
+            # 红球已清完 → 进入彩球升序阶段，从最低在台彩球开始。
+            # 刚作为自选彩球打进的那颗会复位(respot 在 Game 层 evaluate 之后执行)，
+            # 故视为仍在台，否则会误把它跳过(如打进黄球后错误地从绿球开始)。
             new_phase = 'color'
             new_next_color = None
+            available = {b.number for b in balls if b.on_table} | set(respot_colors)
             for cn in color_order:
-                if any(b.on_table and b.number == cn for b in balls):
+                if cn in available:
                     new_next_color = cn
                     break
     else:
