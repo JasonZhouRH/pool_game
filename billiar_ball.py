@@ -544,12 +544,10 @@ class Game:
             for e in new_events:
                 if e.type == 'pocketed':
                     self.sound.play_pocket()
-                    # 记录落袋瞬间位置,供缩小动画绘制(球此刻已停在袋口附近)
-                    b = next((x for x in self.balls
-                              if x.number == e.data['number']), None)
-                    if b is not None:
-                        self.pocketing.append(
-                            {'number': b.number, 'x': b.x, 'y': b.y, 'frame': 0})
+                    # 缩小动画在袋口中心播放(球像沉进洞里),坐标取该袋位置
+                    px, py = self.table.pocket_positions()[e.data['pocket']]
+                    self.pocketing.append(
+                        {'number': e.data['number'], 'x': px, 'y': py, 'frame': 0})
                 elif e.type == 'ball_hit':
                     self.sound.play_ball_hit()
             if physics.all_stopped(self.balls):

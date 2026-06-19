@@ -315,9 +315,9 @@ def draw_menu_hint(screen, font, text):
 
 
 def draw_mute_indicator(screen, font, muted):
-    """左下角静音指示。"""
+    """左下角静音指示（略上移，避开最底边）。"""
     txt = font.render("静音" if muted else "音效", True, config.COLOR_TEXT)
-    screen.blit(txt, txt.get_rect(bottomleft=(20, config.WINDOW_HEIGHT - 14)))
+    screen.blit(txt, txt.get_rect(bottomleft=(20, config.WINDOW_HEIGHT - 44)))
 
 
 def draw_pause_menu(screen, font):

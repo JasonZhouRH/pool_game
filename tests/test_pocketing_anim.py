@@ -73,17 +73,19 @@ def test_animation_independent_of_ball_motion(game_module):
     assert g.pocketing == []
 
 
-def test_update_records_pocketed_ball(game_module):
-    # 真实物理触发一次进袋:把 3 号放袋口、给速度,update() 一帧后该球应被记录。
+def test_update_records_pocketed_ball_at_pocket_center(game_module):
+    # 真实物理触发一次进袋:球落袋位置偏离袋心,但记录的应是袋口中心(动画在袋心缩小)。
     g = game_module.Game()
     # 仅留母球(resolve 需要)与 3 号球在台,其余移出,隔离副作用
     for b in g.balls:
         b.on_table = b.number in (0, 3)
-    pocket = g.table.pocket_positions()[0]
+    pocket = g.table.pocket_positions()[1]   # 上中袋,远离母球开球点
     three = next(b for b in g.balls if b.number == 3)
-    three.x, three.y = pocket[0], pocket[1]
-    three.vx, three.vy = 0.2, 0.0     # 给个小速度,本帧 step 仍判定进袋
+    # 放在袋口判定半径内、但明显偏离袋心(偏 10 像素),用来区分"落袋点"与"袋心"
+    three.x, three.y = pocket[0] + 10.0, pocket[1] + 10.0
+    three.vx, three.vy = 0.0, 0.0
     cue = find_cue(g.balls)
+    cue.x, cue.y = g.table.head_spot()
     cue.vx, cue.vy = 0.0, 0.0
     g.state = game_module.STATE_MOVING
     g.update()
@@ -91,6 +93,5 @@ def test_update_records_pocketed_ball(game_module):
     assert len(recorded) == 1
     p = recorded[0]
     assert p['frame'] == 1            # 压入(0)后本帧末尾 advance(+1)
-    # 记录的是落袋位置(袋口附近)
-    assert abs(p['x'] - pocket[0]) < config.POCKET_RADIUS
-    assert abs(p['y'] - pocket[1]) < config.POCKET_RADIUS
+    # 记录的是袋口中心,而非球的落袋位置
+    assert (p['x'], p['y']) == (pocket[0], pocket[1])

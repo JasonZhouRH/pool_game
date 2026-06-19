@@ -10,7 +10,7 @@
 
 ## 效果(已与用户确认)
 
-- **原地缩小**:动画在落袋瞬间的位置播放,不移动、不被吸向袋心。
+- **在袋口中心缩小**:动画播放位置取该袋口坐标(由落袋事件的 `pocket` 索引得到),球像沉进洞里。(初版为"落袋点原地缩小",后改为袋心。)
 - **时长约 0.25 秒**:60fps 下 15 帧,线性缩小,无缓动。
 - 缩小期间只画**纯色圆**,不画号码、不画花色带(小尺寸下细节很丑)。
 
@@ -49,20 +49,19 @@ self.pocketing = []   # 进袋缩小动画:[{'number','x','y','frame'}, ...]
 
 ### 压入快照
 
-`update()` 已在遍历本帧物理事件放音效。在该循环里,遇到 `pocketed` 事件时,按事件携带的球号找到该球的当前坐标,压入快照:
+`update()` 已在遍历本帧物理事件放音效。在该循环里,遇到 `pocketed` 事件时,用事件携带的 `pocket` 索引取**袋口中心**坐标,压入快照:
 
 ```python
 for e in new_events:
     if e.type == 'pocketed':
         self.sound.play_pocket()
-        b = next((x for x in self.balls if x.number == e.data['number']), None)
-        if b is not None:
-            self.pocketing.append({'number': b.number, 'x': b.x, 'y': b.y, 'frame': 0})
+        px, py = self.table.pocket_positions()[e.data['pocket']]
+        self.pocketing.append({'number': e.data['number'], 'x': px, 'y': py, 'frame': 0})
     elif e.type == 'ball_hit':
         self.sound.play_ball_hit()
 ```
 
-> 取坐标的时机:事件在 `physics.step` 内产生,球进袋时 `vx/vy` 被清零、`x/y` 停在袋口附近,本帧 `step` 返回后位置不再变。`update()` 拿到的就是落袋位置,符合"原地"。
+> 用袋口中心而非球的落袋点:动画在袋心缩小,视觉上像球沉进洞里。`pocket` 索引对应 `table.pocket_positions()` 的 6 个袋口。
 
 ### 每帧推进(独立于球是否在动)
 
