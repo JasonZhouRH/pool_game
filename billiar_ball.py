@@ -93,6 +93,8 @@ class Game:
         self.english = (0.0, 0.0)    # 红点归一化偏移 (dx,dy)，模长≤1；上=跟杆 右=右塞
         self.spin_panel_open = False # 放大面板是否打开
         self.dragging_spin = False   # 是否正在拖红点
+        # 进袋缩小动画:落袋瞬间的快照 [{'number','x','y','frame'}, ...]，与物理/规则解耦
+        self.pocketing = []
 
     # ---- 结算 ----
     def _shooter_on_eight(self):
@@ -527,6 +529,13 @@ class Game:
             self.dragging_spin = False     # 松开停止拖红点
             self.aiming = False            # 松开则瞄准方向定格
 
+    def _advance_pocketing(self):
+        """推进进袋缩小动画一帧;到时长的快照移除。每帧无条件调用。"""
+        for p in self.pocketing:
+            p['frame'] += 1
+        self.pocketing = [p for p in self.pocketing
+                          if p['frame'] < config.POCKET_ANIM_FRAMES]
+
     def update(self):
         if self.state == STATE_MOVING:
             new_events = physics.step(self.balls, self.table)
@@ -535,10 +544,18 @@ class Game:
             for e in new_events:
                 if e.type == 'pocketed':
                     self.sound.play_pocket()
+                    # 记录落袋瞬间位置,供缩小动画绘制(球此刻已停在袋口附近)
+                    b = next((x for x in self.balls
+                              if x.number == e.data['number']), None)
+                    if b is not None:
+                        self.pocketing.append(
+                            {'number': b.number, 'x': b.x, 'y': b.y, 'frame': 0})
                 elif e.type == 'ball_hit':
                     self.sound.play_ball_hit()
             if physics.all_stopped(self.balls):
                 self.resolve_shot()
+        # 动画每帧推进(独立于球是否在动),保证末球落袋、状态切换后仍能播完
+        self._advance_pocketing()
 
     # ---- 绘制 ----
     def draw(self, screen, font, mouse_pos):
@@ -560,6 +577,7 @@ class Game:
             cy = max(self.table.top + r, min(self.table.bottom - r, mouse_pos[1]))
             cue.x, cue.y = cx, cy
         renderer.draw_balls(screen, self.balls, font, mode=self.mode)
+        renderer.draw_pocketing(screen, self.pocketing, mode=self.mode)
         if self.state == STATE_AIMING:
             group = self.player_groups[self.current]
             on_eight = self._shooter_on_eight()

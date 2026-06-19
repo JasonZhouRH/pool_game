@@ -85,6 +85,22 @@ def draw_balls(screen, balls, font, mode='eight'):
         pygame.draw.circle(screen, (0, 0, 0), (cx, cy), r, 1)
 
 
+def draw_pocketing(screen, pocketing, mode='eight'):
+    """绘制正在进袋缩小的球:按 frame 从满半径线性缩到 0 的纯色圆。
+
+    pocketing: [{'number','x','y','frame'}, ...]，由 Game 每帧维护。
+    缩小期间不画号码、不画花色带（小尺寸下细节很丑），只画纯色圆 + 黑描边。
+    """
+    is_snooker = (mode == 'snooker')
+    for p in pocketing:
+        t = p['frame'] / config.POCKET_ANIM_FRAMES   # 0 → 1
+        r = max(1, int(config.BALL_RADIUS * (1 - t)))
+        color = snooker_ball_color(p['number']) if is_snooker else ball_color(p['number'])
+        cx, cy = int(p['x']), int(p['y'])
+        pygame.draw.circle(screen, color, (cx, cy), r)
+        pygame.draw.circle(screen, (0, 0, 0), (cx, cy), r, 1)
+
+
 def draw_aim(screen, cue, aim_dir, balls=None, spin_v=0.0, is_forbidden=None):
     """瞄准线（朝 aim_dir 单位方向）+ 分离角预测。aim_dir 为母球去向。
 

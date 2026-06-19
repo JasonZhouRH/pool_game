@@ -15,6 +15,9 @@ TABLE_BOTTOM = 520
 BALL_RADIUS = 11
 POCKET_RADIUS = 24
 
+# 进袋缩小动画:球落袋后原地线性缩小到消失的帧数(60fps ≈ 0.25 秒)
+POCKET_ANIM_FRAMES = 15
+
 # ---- 物理参数 ----
 FRICTION = 0.985             # 每帧速度衰减系数
 STOP_THRESHOLD = 0.06        # 速度低于此值判为停止
