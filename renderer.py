@@ -264,6 +264,25 @@ def draw_score(screen, font, scores):
     screen.blit(txt, txt.get_rect(center=(config.WINDOW_WIDTH // 2, 30)))
 
 
+def shot_clock_display(frames):
+    """射钟剩余帧 → (显示秒数, 是否预警)。秒数向上取整，剩余低于阈值时预警。
+
+    向上取整：余 1 帧仍显示 1 秒，避免读数提前归零；0 帧才显示 0。
+    """
+    secs = -(-frames // config.FPS)   # 向上取整除法
+    warn = 0 < frames < config.SHOT_CLOCK_WARN_SECONDS * config.FPS
+    return secs, warn
+
+
+def draw_shot_clock(screen, font, frames):
+    """顶部计时器读数（比分下方居中）。剩余不足阈值时变红预警。"""
+    secs, warn = shot_clock_display(frames)
+    color = config.COLOR_SHOT_CLOCK_WARN if warn else config.COLOR_SHOT_CLOCK
+    txt = font.render(f"剩余 {secs}s", True, color)
+    # 居中、比分(y=30)与消息行(y=52)下方一行，避开左对齐的长瞄准提示
+    screen.blit(txt, txt.get_rect(center=(config.WINDOW_WIDTH // 2, 90)))
+
+
 def draw_ball_in_hand_hint(screen, font):
     txt = font.render("自由球：移动鼠标放置母球，点击确定", True, config.COLOR_TEXT)
     screen.blit(txt, (40, config.WINDOW_HEIGHT - 30))

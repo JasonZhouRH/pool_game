@@ -31,6 +31,13 @@ MAX_DRAG = 220.0             # 拉杆最大有效距离（像素）
 FOLLOW_DRAW_STRENGTH = 0.6   # 跟/缩杆：沿冲击法线追加的前/后向速度系数（也用于预测线）
 SIDE_ENGLISH_STRENGTH = 0.35 # 左右塞：母球碰库反弹后沿库边切向偏移系数
 
+# ---- 出杆计时器（仅 8 球 / 9 球，瞄准阶段倒计时）----
+SHOT_CLOCK_SECONDS = 45              # 每杆瞄准时限（秒）
+SHOT_CLOCK_FRAMES = SHOT_CLOCK_SECONDS * FPS  # 派生帧数，帧驱动倒计时
+SHOT_CLOCK_WARN_SECONDS = 10         # 剩余低于此秒数时 HUD 数字变红预警
+COLOR_SHOT_CLOCK = (235, 235, 235)   # 计时器正常色
+COLOR_SHOT_CLOCK_WARN = (230, 60, 60)  # 计时器预警色（剩余不足时）
+
 # ---- 控制台（左微调滑条 + 右球杆蓄力）----
 FINE_TUNE_DEG = 8.0          # 左滑条最大微调角度（粗瞄方向 ±此值）
 

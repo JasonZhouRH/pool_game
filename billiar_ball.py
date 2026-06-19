@@ -97,6 +97,8 @@ class Game:
         self.pocketing = []
         self._win_sound_played = False   # 本局获胜音效是否已播（防止 GAMEOVER 每帧重播）
         self._gameover_frame = 0         # 进入 GAMEOVER 后经过的帧数，驱动获胜界面动画
+        # 出杆计时器（射钟）：仅 8 球/9 球，AIMING 时帧驱动倒计时；归零判超时犯规
+        self._shot_clock = config.SHOT_CLOCK_FRAMES
 
     # ---- 结算 ----
     def _shooter_on_eight(self):
@@ -425,6 +427,7 @@ class Game:
         self.place_mode = None       # 出杆后摆球特权失效
         self._was_free_ball = self.free_ball   # 快照本杆是否自由球(resolve 时用)
         self.free_ball = False       # 出杆后自由球特权失效
+        self._shot_clock = config.SHOT_CLOCK_FRAMES  # 下一杆射钟满血(摆球/调杆不重置)
         self.state = STATE_MOVING
 
     # ---- 事件处理 ----
@@ -538,6 +541,33 @@ class Game:
         self.pocketing = [p for p in self.pocketing
                           if p['frame'] < config.POCKET_ANIM_FRAMES]
 
+    def _shot_clock_active(self):
+        """射钟是否计时:仅 8 球/9 球的瞄准阶段。斯诺克与其它状态冻结。"""
+        return self.state == STATE_AIMING and self.mode in ('eight', 'nine')
+
+    def _tick_shot_clock(self):
+        """瞄准阶段每帧递减射钟;归零按超时犯规处罚。"""
+        if not self._shot_clock_active():
+            return
+        self._shot_clock -= 1
+        if self._shot_clock <= 0:
+            self._timeout_foul()
+
+    def _timeout_foul(self):
+        """超时犯规:换手并给对手自由球(白球不动,仅交控制权),新一杆射钟满血。"""
+        loser = self.current
+        self.current = 1 - self.current
+        self.place_mode = 'free'
+        self.state = STATE_BALL_IN_HAND
+        self._shot_clock = config.SHOT_CLOCK_FRAMES
+        # 清除瞄准/蓄力瞬态,避免超时瞬间正握杆导致随后误出杆
+        self.charging = False
+        self.power = 0.0
+        self.aiming = False
+        self.dragging_slider = False
+        self.dragging_spin = False
+        self.message = f"玩家{loser + 1} 超时犯规，对手自由球"
+
     def update(self):
         if self.state == STATE_MOVING:
             new_events = physics.step(self.balls, self.table)
@@ -554,6 +584,8 @@ class Game:
                     self.sound.play_ball_hit()
             if physics.all_stopped(self.balls):
                 self.resolve_shot()
+        # 射钟:瞄准阶段倒计时,归零判超时犯规(在 MOVING 推进之后,状态稳定时计时)
+        self._tick_shot_clock()
         # 动画每帧推进(独立于球是否在动),保证末球落袋、状态切换后仍能播完
         self._advance_pocketing()
         # 进入 GAMEOVER:首帧播一次获胜音效并归零动画帧计数,之后每帧递增驱动动画
@@ -615,6 +647,8 @@ class Game:
                           snooker_scores=self._snooker_scores if self.mode == 'snooker' else None,
                           can_replay=self._can_replay)
         renderer.draw_score(screen, font, self.scores)
+        if self._shot_clock_active():
+            renderer.draw_shot_clock(screen, font, self._shot_clock)
         if self.state == STATE_GAMEOVER:
             renderer.draw_gameover(screen, font, title_font or font, self.winner,
                                    frame=self._gameover_frame)

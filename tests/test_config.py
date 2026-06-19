@@ -38,6 +38,14 @@ def test_spin_control_constants_present_and_sane():
     assert 0 < config.SIDE_ENGLISH_STRENGTH <= 1.0
 
 
+def test_shot_clock_constants_present_and_sane():
+    # 出杆计时器：45 秒，派生帧数 = 秒数 * FPS
+    assert config.SHOT_CLOCK_SECONDS == 45
+    assert config.SHOT_CLOCK_FRAMES == config.SHOT_CLOCK_SECONDS * config.FPS
+    # 低于此剩余秒数 HUD 变红预警
+    assert 0 < config.SHOT_CLOCK_WARN_SECONDS < config.SHOT_CLOCK_SECONDS
+
+
 def test_menu_constants_present_and_sane():
     # 文案
     assert isinstance(config.MENU_TITLE, str) and config.MENU_TITLE
