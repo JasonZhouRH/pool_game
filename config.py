@@ -99,7 +99,7 @@ BALL_BASE_COLORS = {
 }
 
 # ---- 封面菜单 ----
-MENU_TITLE = "台球游戏"
+MENU_TITLE = "2D台球游戏"
 MENU_BTN_W = 220            # 按钮宽
 MENU_BTN_H = 64             # 按钮高
 MENU_BTN_CY = 400           # 按钮中心 y（窗口下部，标题在其上方）

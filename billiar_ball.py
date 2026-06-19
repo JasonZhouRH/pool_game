@@ -624,7 +624,7 @@ def _pause_button_at(x, y):
 def main():
     pygame.init()
     screen = pygame.display.set_mode((config.WINDOW_WIDTH, config.WINDOW_HEIGHT))
-    pygame.display.set_caption("2D 美式8球")
+    pygame.display.set_caption("2D台球游戏")
     font = pygame.font.SysFont('arialunicode,heitisc,pingfangsc,arial', 22)
     title_font = pygame.font.SysFont('arialunicode,heitisc,pingfangsc,arial', 64)
     clock = pygame.time.Clock()
