@@ -1,4 +1,6 @@
 """8 球/9 球/斯诺克规则判定：消费 physics 事件，输出本杆结果。无 pygame 依赖。"""
+from __future__ import annotations
+
 import math
 from dataclasses import dataclass
 
