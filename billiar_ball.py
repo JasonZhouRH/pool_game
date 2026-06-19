@@ -640,6 +640,10 @@ def _pause_button_at(x, y):
 def main():
     pygame.init()
     screen = pygame.display.set_mode((config.WINDOW_WIDTH, config.WINDOW_HEIGHT))
+    # 关闭文本输入(IME),避免中文输入法拦截 R/M/F/G 等游戏按键。
+    # 仅作用于本窗口的按键处理,不改动系统输入法设置。
+    if hasattr(pygame.key, 'stop_text_input'):
+        pygame.key.stop_text_input()
     pygame.display.set_caption("2D台球游戏")
     font = pygame.font.SysFont('arialunicode,heitisc,pingfangsc,arial', 22)
     title_font = pygame.font.SysFont('arialunicode,heitisc,pingfangsc,arial', 64)
