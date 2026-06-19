@@ -32,26 +32,40 @@ pygame 标准做法:短音效用 `mixer.Sound`(现状),长背景音乐用 `mixer
 
 ## 第 1 部分:音乐文件
 
-- 下载一首 CC0/公共领域、适合氛围、可循环的曲子,存为 `sounds/bgm.ogg`。
-- 优先 `.ogg`(pygame 兼容稳、体积小)。
+- 下载一首 CC0/公共领域、适合氛围、可循环的曲子,放入 `sounds/`。
+- 加载器按 `['bgm.ogg', 'bgm.mp3']` 顺序取第一个存在的(ogg 优先、回退 mp3),
+  方便将来替换格式而不改代码。
 - 下载后用 `pygame.mixer.music.load` 验证可加载。
 - commit message 注明素材来源与许可。
+
+**实际采用**:OpenGameArt 的「Bossa Nova」by Joth,**CC0(公共领域)**,
+标签 loop/calm/elevator/jazz,适合台球厅氛围。本机无 ffmpeg,而 pygame 2.6/SDL2
+可直接加载 MP3 并 `play(loops=-1)` 循环,故直接采用 MP3,存为 `sounds/bgm.mp3`。
 
 ## 第 2 部分:`SoundManager`(`sounds.py`)
 
 新增字段与方法,职责单一(音乐归 SoundManager 管):
 
 ```python
-_BGM_PATH = os.path.join(_SOUND_DIR, 'bgm.ogg')
+_BGM_CANDIDATES = ['bgm.ogg', 'bgm.mp3']
+
+def _find_bgm():
+    """返回第一个存在的背景音乐文件路径，都不存在则 None。"""
+    for name in _BGM_CANDIDATES:
+        path = os.path.join(_SOUND_DIR, name)
+        if os.path.exists(path):
+            return path
+    return None
 
 class SoundManager:
     def __init__(self):
         ...                      # 现有音效加载不变
         self._bgm_loaded = False
         self._bgm_should_play = False   # 逻辑上"现在是否应播 BGM"(用于静音恢复)
-        if os.path.exists(_BGM_PATH):
+        bgm_path = _find_bgm()
+        if bgm_path is not None:
             try:
-                pygame.mixer.music.load(_BGM_PATH)
+                pygame.mixer.music.load(bgm_path)
                 self._bgm_loaded = True
             except pygame.error:
                 self._bgm_loaded = False

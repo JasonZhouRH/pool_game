@@ -651,6 +651,7 @@ def main():
     game = None
     paused = False
     sound = sounds.SoundManager()  # 全局音效，菜单和对局共用
+    sound.play_bgm()    # 启动即在封面菜单循环播放背景音乐
     hint_text = ""      # 封面临时提示文字，空串=不显示
     hint_until = 0      # 提示到期时间戳（ms, pygame.time.get_ticks）
 
@@ -661,7 +662,7 @@ def main():
                 pygame.quit()
                 sys.exit()
             if ev.type == pygame.KEYDOWN and ev.key == pygame.K_m:
-                sound.muted = not sound.muted
+                sound.set_muted(not sound.muted)
             if scene == 'menu':
                 if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
                     clicked = menu.button_at(*mouse_pos)
@@ -682,6 +683,8 @@ def main():
                         scene = 'game'
                         hint_text = ""
                         hint_until = 0
+                    if scene == 'game':   # 任一模式按钮进入对局 → 停止背景音乐
+                        sound.stop_bgm()
             else:  # scene == 'game'
                 if ev.type == pygame.KEYDOWN and ev.key == pygame.K_ESCAPE:
                     paused = not paused
@@ -701,6 +704,7 @@ def main():
                         scene = 'menu'
                         game = None
                         paused = False
+                        sound.play_bgm()   # 返回封面菜单 → 恢复背景音乐
 
         if scene == 'game' and game is not None and not paused:
             game.update()
