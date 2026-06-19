@@ -38,10 +38,10 @@ def particles_at(frame, width, height):
     if frame >= CONFETTI_FALL_FRAMES:
         return []
     particles = []
-    g = 0.04                              # 重力加速度（像素/帧²，归一空间后乘高度）
+    g = 0.0255                            # 重力加速度（像素/帧²，归一空间后乘高度）→ 略放缓
     for i in range(CONFETTI_COUNT):
         # 每片碎纸错开释放：在释放窗口内分散一个起跑时刻，未到则不出现。
-        # 各片下落用与原版相同的自然(快)速度，只是整体被错开拉长了出现时间。
+        # 各片下落用统一的自然速度（已整体略放缓），整体被错开拉长出现时间。
         t_release = _rand(i, 7) * CONFETTI_RELEASE_FRAMES
         t = frame - t_release
         if t < 0:
@@ -49,7 +49,7 @@ def particles_at(frame, width, height):
 
         x0 = _rand(i, 1) * width          # 横向起点：铺满整个宽度
         y_start = -_rand(i, 2) * height * 0.15  # 起点在屏幕上沿之上一点
-        v0 = 1.5 + _rand(i, 3) * 2.0      # 初始下落速度（自然速度，同原版）
+        v0 = 1.2 + _rand(i, 3) * 1.6      # 初始下落速度（较原版略慢一点点）
         sway_amp = 10 + _rand(i, 4) * 25  # 横摆幅度
         sway_freq = 0.03 + _rand(i, 5) * 0.05
         spin = (_rand(i, 6) - 0.5) * 16   # 旋转速度（度/帧）

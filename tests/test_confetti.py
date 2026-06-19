@@ -49,21 +49,29 @@ def test_particles_deterministic():
     assert a == b
 
 
-def test_particle_falls_at_natural_speed():
-    # 自然(快)速度:某片碎纸从释放到落出屏幕底部不超过 ~120 帧(约 2 秒),
-    # 而非被拖慢到铺满整个 5 秒。验证单片速度未被牺牲。
-    # 追踪 0 号:找到它释放后的首帧,再看它何时落出屏外。
+def _crossing_frames(pid=0):
+    """某片碎纸从释放后首帧到落出屏幕底部的帧数。"""
     first_seen = None
-    fell_out = None
     for f in range(0, confetti.CONFETTI_FALL_FRAMES):
-        present = 0 in _by_id(confetti.particles_at(f, W, H))
+        present = pid in _by_id(confetti.particles_at(f, W, H))
         if present and first_seen is None:
             first_seen = f
         if first_seen is not None and not present:
-            fell_out = f
-            break
-    assert first_seen is not None and fell_out is not None
-    assert fell_out - first_seen <= 120   # 单片快速穿屏,未被拖慢
+            return f - first_seen
+    return None
+
+
+def test_particle_falls_at_natural_speed():
+    # 自然速度:单片碎纸穿屏不超过 ~120 帧(约 2 秒),未被拖慢到铺满整个 5 秒。
+    crossing = _crossing_frames(0)
+    assert crossing is not None
+    assert crossing <= 120                # 单片快速穿屏,未被拖慢
+
+
+def test_particle_speed_slightly_eased():
+    # 略微放缓后的手感:单片穿屏约 80 帧,比原先(64 帧)稍长,但仍在自然区间内。
+    crossing = _crossing_frames(0)
+    assert 78 <= crossing <= 82           # 目标约 80 帧
 
 
 def test_particles_have_color_and_angle():
