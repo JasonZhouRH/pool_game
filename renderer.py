@@ -279,13 +279,13 @@ def draw_gameover(screen, font, title_font, winner_player, frame=0):
     overlay.fill((0, 0, 0, 160))
     screen.blit(overlay, (0, 0))
 
-    # 1. 碎纸：旋转的小方块从顶部洒落（落完返回空，自然消失）
-    size = confetti.CONFETTI_SIZE
+    # 1. 碎纸：旋转的细长条彩带从顶部洒落（落完返回空，自然消失）
+    cw, ch = confetti.CONFETTI_WIDTH, confetti.CONFETTI_HEIGHT
     for p in confetti.particles_at(frame, W, H):
-        block = pygame.Surface((size, size), pygame.SRCALPHA)
-        block.fill(p['color'])
-        block = pygame.transform.rotate(block, p['angle'])
-        screen.blit(block, block.get_rect(center=(int(p['x']), int(p['y']))))
+        strip = pygame.Surface((cw, ch), pygame.SRCALPHA)
+        strip.fill(p['color'])
+        strip = pygame.transform.rotate(strip, p['angle'])
+        screen.blit(strip, strip.get_rect(center=(int(p['x']), int(p['y']))))
 
     cx, cy = W // 2, H // 2
 
