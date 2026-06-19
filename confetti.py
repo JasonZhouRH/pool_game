@@ -7,7 +7,7 @@ import math
 
 import config
 
-CONFETTI_COUNT = 80           # 粒子数
+CONFETTI_COUNT = 140          # 粒子数（越多越密集）
 CONFETTI_FALL_FRAMES = 300    # 整波持续帧数（60fps ≈ 5 秒），到点后不再有碎纸
 CONFETTI_RELEASE_FRAMES = 220 # 释放窗口：碎纸在这段时间内错开陆续从顶部落下
 CONFETTI_SIZE = 8             # 方块边长（像素）

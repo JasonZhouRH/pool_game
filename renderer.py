@@ -290,11 +290,12 @@ def draw_gameover(screen, font, title_font, winner_player, frame=0):
     cx, cy = W // 2, H // 2
 
     # 2. 标题：64 号大字，按弹入缓动缩放后居中
+    #    末尾全角「！」右侧自带留白，几何居中会显得偏左，故略向右补偿使其视觉居中。
     scale = confetti.title_scale(frame)
     if scale > 0.05:   # scale≈0 时跳过，避免 0 尺寸 surface
         title_surf = title_font.render(f"玩家{winner_player + 1} 获胜！", True, (255, 230, 120))
         scaled = pygame.transform.rotozoom(title_surf, 0, scale)
-        screen.blit(scaled, scaled.get_rect(center=(cx, cy - 30)))
+        screen.blit(scaled, scaled.get_rect(center=(cx + 16, cy - 30)))
 
     # 3. 提示小字（标题下方）
     hint = font.render("按 R 重新开始", True, (235, 235, 235))
