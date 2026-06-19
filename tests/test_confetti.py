@@ -54,11 +54,13 @@ def test_title_scale_starts_near_zero():
 
 
 def test_title_scale_overshoots_above_one():
-    # 弹入过程中存在超过 1 的峰值(回弹效果)
-    peak = max(confetti.title_scale(f) for f in range(0, 40))
+    # 弹入过程中存在超过 1 的峰值(回弹效果);扫描整个弹入区间
+    peak = max(confetti.title_scale(f)
+               for f in range(0, confetti._TITLE_BOUNCE_FRAMES))
     assert peak > 1.0
 
 
 def test_title_scale_settles_at_one():
-    # 足够大的帧后稳定为 1.0
-    assert abs(confetti.title_scale(120) - 1.0) < 1e-9
+    # 弹入结束后稳定为 1.0
+    assert abs(confetti.title_scale(confetti._TITLE_BOUNCE_FRAMES) - 1.0) < 1e-9
+    assert abs(confetti.title_scale(confetti._TITLE_BOUNCE_FRAMES + 100) - 1.0) < 1e-9

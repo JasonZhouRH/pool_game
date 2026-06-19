@@ -8,7 +8,7 @@ import math
 import config
 
 CONFETTI_COUNT = 80           # 粒子数
-CONFETTI_FALL_FRAMES = 150    # 一波落完的帧数（60fps ≈ 2.5 秒）
+CONFETTI_FALL_FRAMES = 300    # 一波落完的帧数（60fps ≈ 5 秒）
 CONFETTI_SIZE = 8             # 方块边长（像素）
 
 # 鲜艳配色（复用球色相近的高饱和 RGB）
@@ -17,7 +17,7 @@ CONFETTI_COLORS = [
     (200, 80, 200), (240, 140, 50), (90, 210, 220),
 ]
 
-_TITLE_BOUNCE_FRAMES = 18     # 标题弹入过程帧数；之后恒为 1.0
+_TITLE_BOUNCE_FRAMES = 40     # 标题弹入过程帧数（约 0.67 秒）；之后恒为 1.0
 
 
 def _rand(i, salt):
@@ -35,19 +35,21 @@ def particles_at(frame, width, height):
     if frame >= CONFETTI_FALL_FRAMES:
         return []
     particles = []
-    g = 0.04                              # 重力加速度（像素/帧²，归一空间后乘高度）
+    # 让碎纸在整个 CONFETTI_FALL_FRAMES 期间慢悠悠飘过全屏：
+    # 基础下落速度 ≈ 屏高 / 总帧数，使典型粒子在动画末尾才到达底部。
+    base_v = height / CONFETTI_FALL_FRAMES
     for i in range(CONFETTI_COUNT):
         # 初值（确定性）
         x0 = _rand(i, 1) * width          # 横向起点：铺满整个宽度
         y_start = -_rand(i, 2) * height * 0.3   # 起点在屏幕上沿之上一点，错开入场
-        v0 = 1.5 + _rand(i, 3) * 2.0      # 初始下落速度
+        v = base_v * (0.8 + _rand(i, 3) * 0.7)  # 各粒子速度略有差异（0.8~1.5 倍）
         sway_amp = 10 + _rand(i, 4) * 25  # 横摆幅度
         sway_freq = 0.03 + _rand(i, 5) * 0.05
-        spin = (_rand(i, 6) - 0.5) * 20   # 旋转速度（度/帧）
+        spin = (_rand(i, 6) - 0.5) * 8    # 旋转速度（度/帧）
         color = CONFETTI_COLORS[i % len(CONFETTI_COLORS)]
 
         t = frame
-        y = y_start + v0 * t + 0.5 * g * height / 100 * t * t
+        y = y_start + v * t               # 近匀速缓降（飘落感）
         x = x0 + math.sin(t * sway_freq + i) * sway_amp
         angle = (spin * t) % 360
         particles.append({'x': x, 'y': y, 'color': color, 'angle': angle})
