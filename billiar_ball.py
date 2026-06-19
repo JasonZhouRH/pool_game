@@ -95,6 +95,7 @@ class Game:
         self.dragging_spin = False   # 是否正在拖红点
         # 进袋缩小动画:落袋瞬间的快照 [{'number','x','y','frame'}, ...]，与物理/规则解耦
         self.pocketing = []
+        self._win_sound_played = False   # 本局获胜音效是否已播（防止 GAMEOVER 每帧重播）
 
     # ---- 结算 ----
     def _shooter_on_eight(self):
@@ -554,6 +555,10 @@ class Game:
                 self.resolve_shot()
         # 动画每帧推进(独立于球是否在动),保证末球落袋、状态切换后仍能播完
         self._advance_pocketing()
+        # 进入 GAMEOVER 时播一次获胜音效(统一在此判断转换,覆盖各胜负分支,不漏不重)
+        if self.state == STATE_GAMEOVER and not self._win_sound_played:
+            self.sound.play_win()
+            self._win_sound_played = True
 
     # ---- 绘制 ----
     def draw(self, screen, font, mouse_pos):

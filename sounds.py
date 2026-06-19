@@ -9,12 +9,13 @@ _SOUND_DIR = os.path.join(os.path.dirname(__file__), 'sounds')
 _BGM_CANDIDATES = ['bgm.ogg', 'bgm.mp3']
 
 
-def _load(name):
-    """加载 sounds/<name>.wav，返回 pygame.mixer.Sound。"""
-    path = os.path.join(_SOUND_DIR, f'{name}.wav')
-    if not os.path.exists(path):
-        return None
-    return pygame.mixer.Sound(path)
+def _load(name, exts=('wav',)):
+    """加载 sounds/<name>.<ext>（按 exts 顺序取第一个存在的），返回 Sound 或 None。"""
+    for ext in exts:
+        path = os.path.join(_SOUND_DIR, f'{name}.{ext}')
+        if os.path.exists(path):
+            return pygame.mixer.Sound(path)
+    return None
 
 
 def _find_bgm():
@@ -38,6 +39,7 @@ class SoundManager:
         self._ball_hit = _load('ball_hit')
         self._pocket = _load('pocket')
         self._btn_click = _load('btn_click')
+        self._win = _load('win', exts=('ogg', 'wav'))   # 获胜音效（ogg 优先）
 
         # 背景音乐：用 pygame.mixer.music（流式、原生循环），与上面的 Sound 音效分开
         self._bgm_loaded = False
@@ -65,6 +67,10 @@ class SoundManager:
     def play_btn_click(self):
         if self._btn_click and not self.muted:
             self._btn_click.play()
+
+    def play_win(self):
+        if self._win and not self.muted:
+            self._win.play()
 
     def play_bgm(self):
         """开始循环播放背景音乐。无文件则仅置标志（优雅降级）。"""
