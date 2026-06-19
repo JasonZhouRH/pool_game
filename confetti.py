@@ -8,7 +8,8 @@ import math
 import config
 
 CONFETTI_COUNT = 80           # 粒子数
-CONFETTI_FALL_FRAMES = 300    # 一波落完的帧数（60fps ≈ 5 秒）
+CONFETTI_FALL_FRAMES = 300    # 整波持续帧数（60fps ≈ 5 秒），到点后不再有碎纸
+CONFETTI_RELEASE_FRAMES = 220 # 释放窗口：碎纸在这段时间内错开陆续从顶部落下
 CONFETTI_SIZE = 8             # 方块边长（像素）
 
 # 鲜艳配色（复用球色相近的高饱和 RGB）
@@ -35,24 +36,29 @@ def particles_at(frame, width, height):
     if frame >= CONFETTI_FALL_FRAMES:
         return []
     particles = []
-    # 让碎纸在整个 CONFETTI_FALL_FRAMES 期间慢悠悠飘过全屏：
-    # 基础下落速度 ≈ 屏高 / 总帧数，使典型粒子在动画末尾才到达底部。
-    base_v = height / CONFETTI_FALL_FRAMES
+    g = 0.04                              # 重力加速度（像素/帧²，归一空间后乘高度）
     for i in range(CONFETTI_COUNT):
-        # 初值（确定性）
+        # 每片碎纸错开释放：在释放窗口内分散一个起跑时刻，未到则不出现。
+        # 各片下落用与原版相同的自然(快)速度，只是整体被错开拉长了出现时间。
+        t_release = _rand(i, 7) * CONFETTI_RELEASE_FRAMES
+        t = frame - t_release
+        if t < 0:
+            continue                      # 这片还没释放
+
         x0 = _rand(i, 1) * width          # 横向起点：铺满整个宽度
-        y_start = -_rand(i, 2) * height * 0.3   # 起点在屏幕上沿之上一点，错开入场
-        v = base_v * (0.8 + _rand(i, 3) * 0.7)  # 各粒子速度略有差异（0.8~1.5 倍）
+        y_start = -_rand(i, 2) * height * 0.15  # 起点在屏幕上沿之上一点
+        v0 = 1.5 + _rand(i, 3) * 2.0      # 初始下落速度（自然速度，同原版）
         sway_amp = 10 + _rand(i, 4) * 25  # 横摆幅度
         sway_freq = 0.03 + _rand(i, 5) * 0.05
-        spin = (_rand(i, 6) - 0.5) * 8    # 旋转速度（度/帧）
+        spin = (_rand(i, 6) - 0.5) * 16   # 旋转速度（度/帧）
         color = CONFETTI_COLORS[i % len(CONFETTI_COLORS)]
 
-        t = frame
-        y = y_start + v * t               # 近匀速缓降（飘落感）
+        y = y_start + v0 * t + 0.5 * g * height / 100 * t * t
+        if y > height + CONFETTI_SIZE:
+            continue                      # 已落出屏幕底部，不再绘制
         x = x0 + math.sin(t * sway_freq + i) * sway_amp
         angle = (spin * t) % 360
-        particles.append({'x': x, 'y': y, 'color': color, 'angle': angle})
+        particles.append({'id': i, 'x': x, 'y': y, 'color': color, 'angle': angle})
     return particles
 
 
